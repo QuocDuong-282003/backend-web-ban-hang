@@ -1,0 +1,70 @@
+const auhtService = require('../services/auhtService');
+
+exports.login = async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const user = await auhtService.loginUser(email, password);
+        res.json({
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role // role được gửi về FE
+            }
+        });
+    } catch (err) {
+        res.status(401).json({ message: err.message });
+    }
+};
+
+exports.register = async (req, res) => {
+    const { email, password, name, role } = req.body;
+    try {
+        const user = await auhtService.registerUser(email, password, name, role);
+        res.status(201).json({ user });
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+};
+exports.forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    try {
+        await auhtService.checkEmailExist(email);
+        res.json({ message: ' Email hợp lệ!' });
+    } catch (err) {
+        res.status(404).json({ message: err.message });
+    }
+};
+exports.resetPassword = async (req, res) => {
+    const { email, newPassword } = req.body;
+    try {
+        await auhtService.updatePasswordUser(email, newPassword);
+        res.json({ message: 'Mật khẩu đã được cập nhật' });
+    } catch (error) {
+        res.status(400).json({ message: error.message })
+
+    }
+}
+// 📋 Lấy danh sách tất cả người dùng
+exports.getAllUsersTable = async (req, res) => {
+    try {
+        const users = await auhtService.getAllUsers();
+        console.log("check userr", users)
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi khi lấy danh sách người dùng' });
+    }
+};
+exports.deleteUserById = async (req, res) => {
+
+    const { id } = req.params;
+    try {
+        const result = await auhtService.deleteUser(id);
+        if (!result) {
+            return res.status(404).json({ message: 'Không tìm thấy user để xóa' });
+        }
+        res.json({ message: 'Đã xóa thành công' });
+    } catch (err) {
+        res.status(500).json({ message: 'Lỗi server khi xóa user' });
+    }
+};
