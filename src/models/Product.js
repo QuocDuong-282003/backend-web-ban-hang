@@ -8,16 +8,18 @@ const productSchema = new mongoose.Schema({
     stock: Number,
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: false },
     brand: String,
-    // images: [{
-    //     data: String,
-    //     contentType: String
-    // }],
+
     images: [{
         data: Buffer,       // Dữ liệu ảnh thô
         contentType: String // Kiểu file, ví dụ: 'image/jpeg'
     }],
     sold: { type: Number, default: 0 },
     isFlashSale: { type: Boolean, default: false },
+    discount: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Discount',
+        default: null
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Product', productSchema);
