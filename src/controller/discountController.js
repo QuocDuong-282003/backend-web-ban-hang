@@ -9,13 +9,20 @@ exports.createDiscount = async (req, res) => {
 
         if (!code || !description || !discountType || !value || !startDate || !endDate) {
             return res.status(400).json({ message: 'Vui long dien day du thong tin' })
+
         }
+        if (!['percent', 'fixed'].includes(discountType)) {
+            return res.status(400).json({ message: "Loại giảm giá không hợp lệ. Chỉ chấp nhận 'percent' hoặc 'fixed'." });
+        }
+
+        //  Ép kiểu và Validate `value`
         const numericValue = parseFloat(value);
-        if (isNaN(numericValue)) {
-            return res.status(400).json({ message: 'Giá trị (value) phải là một số.' });
+        if (isNaN(numericValue) || numericValue < 0) {
+            return res.status(400).json({ message: 'Giá trị (value) phải là một số không âm.' });
         }
+
         const discountData = {
-            code, description, discountType, value, startDate, endDate,
+            code, description, discountType, value: numericValue, startDate, endDate,
             isActive: isActive !== undefined ? isActive : true // Nếu không có thì mặc định là true
         }
         const discount = await discountService.createDiscount(discountData);

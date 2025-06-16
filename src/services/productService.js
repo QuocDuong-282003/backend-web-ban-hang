@@ -70,8 +70,6 @@ exports.getAllProducts = async () => {
 
     return productsWithDetails;
 };
-
-
 exports.assignDiscount = async (productId, discountId) => {
     const product = await Product.findById(productId);
     if (!product) {

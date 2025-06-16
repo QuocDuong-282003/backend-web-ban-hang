@@ -6,6 +6,7 @@ const productController = require('../controller/productController');
 const categoryController = require('../controller/categoryController');
 const uploadImagesMiddleware = require('../../src/config/upLoadImg');
 const discountController = require('../controller/discountController');
+const orderController = require('../controller/orderController');
 // API đăng nhập & đăng ký
 router.post('/login', authController.login);
 router.post('/register', authController.register);
@@ -45,6 +46,10 @@ router.get('/discount-all', discountController.getAllDiscountTable);
 router.get('/discount/:id', discountController.getDiscountByID);
 router.put('/discount/:id', discountController.updateDiscount);
 router.delete('/discount/:id', discountController.deleteDiscount);
+//order
+router.post('/add-order', orderController.createOrder);
+router.get('/order-all', orderController.getAllOrders);
+router.put('/update-order/:id/status', orderController.updateOrderStatus);
 module.exports = router;
 
 
