@@ -1,17 +1,74 @@
 const auhtService = require('../services/auhtService');
+const jwt = require('jsonwebtoken');
+// exports.login = async (req, res) => {
+//     const { email, password } = req.body;
+//     try {
+//         const user = await auhtService.loginUser(email, password);
+//         res.json({
+//             user: {
+//                 id: user._id,
+//                 email: user.email,
+//                 name: user.name,
+//                 role: user.role // role được gửi về FE
+//             }
+//         });
+//     } catch (err) {
+//         res.status(401).json({ message: err.message });
+//     }
+// };
 
+
+//const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key'; // nên dùng biến môi trường
+
+// exports.login = async (req, res) => {
+//     const { email, password } = req.body;
+//     try {
+//         const user = await auhtService.loginUser(email, password);
+
+//         // 🔐 Tạo JWT token
+//         const token = jwt.sign(
+//             {
+//                 id: user._id,
+//                 role: user.role
+//             },
+//             process.env.JWT_SECRET,
+//             { expiresIn: '7d' }
+//         );
+
+//         // Trả về cả token + user
+//         res.json({
+//             token,
+//             user: {
+//                 id: user._id,
+//                 email: user.email,
+//                 name: user.name,
+//                 role: user.role
+//             }
+//         });
+//     } catch (err) {
+//         res.status(401).json({ message: err.message });
+//     }
+// };
 exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
         const user = await auhtService.loginUser(email, password);
-        res.json({
-            user: {
-                id: user._id,
-                email: user.email,
-                name: user.name,
-                role: user.role // role được gửi về FE
-            }
-        });
+
+        // Log để kiểm tra khóa bí mật tại thời điểm ký
+        console.log('[AUTH CONTROLLER] Đang KÝ token với khóa bí mật:', process.env.JWT_SECRET);
+
+        if (!process.env.JWT_SECRET) {
+            console.error("FATAL ERROR: JWT_SECRET is not defined in .env file.");
+            return res.status(500).json({ message: "Server configuration error." });
+        }
+
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.json({ token, user: { id: user._id, email: user.email, name: user.name, role: user.role } });
     } catch (err) {
         res.status(401).json({ message: err.message });
     }
@@ -45,7 +102,7 @@ exports.resetPassword = async (req, res) => {
 
     }
 }
-// 📋 Lấy danh sách tất cả người dùng
+//  Lấy danh sách tất cả người dùng
 exports.getAllUsersTable = async (req, res) => {
     try {
         const users = await auhtService.getAllUsers();

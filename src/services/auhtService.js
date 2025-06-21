@@ -44,7 +44,7 @@ exports.updatePasswordUser = async (email, newPassword) => {
     return true;
 
 }
-// 📋 Lấy tất cả user
+//  Lấy tất cả user
 exports.getAllUsers = async () => {
     return await User.find().sort({ createdAt: -1 });
 };

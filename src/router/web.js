@@ -7,6 +7,9 @@ const categoryController = require('../controller/categoryController');
 const uploadImagesMiddleware = require('../../src/config/upLoadImg');
 const discountController = require('../controller/discountController');
 const orderController = require('../controller/orderController');
+const dashboardController = require('../controller/dashboardController');
+const reviewController = require('../controller/reviewController');
+const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 // API đăng nhập & đăng ký
 router.post('/login', authController.login);
 router.post('/register', authController.register);
@@ -50,6 +53,22 @@ router.delete('/discount/:id', discountController.deleteDiscount);
 router.post('/add-order', orderController.createOrder);
 router.get('/order-all', orderController.getAllOrders);
 router.put('/update-order/:id/status', orderController.updateOrderStatus);
+// ===================================
+router.get('/stats/overview', dashboardController.getOverviewStats);
+router.get('/stats/sales', dashboardController.getSalesStats);
+router.get('/stats/order-status', dashboardController.getOrderStatusStats);
+
+// === ADMIN REVIEW ROUTES ===
+router.get('/admin/reviews', verifyToken, verifyAdmin, reviewController.adminGetAllReviews);
+router.post('/reviews/export', verifyToken, verifyAdmin, reviewController.adminExportReview);
+
+// === USER REVIEW ROUTES ===
+router.post('/reviews', verifyToken, reviewController.userCreateReview);
+router.put('/reviews/:id', verifyToken, reviewController.userUpdateReview);
+router.delete('/reviews/:id', verifyToken, reviewController.userDeleteReview);
+
+// === PUBLIC REVIEW ROUTE ===
+router.get('/products/:productId/reviews', reviewController.publicGetProductReview);
 module.exports = router;
 
 

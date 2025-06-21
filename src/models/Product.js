@@ -14,7 +14,15 @@ const productSchema = new mongoose.Schema({
         contentType: String // Kiểu file, ví dụ: 'image/jpeg'
     }],
     sold: { type: Number, default: 0 },
+    rating: {
+        type: Number,
+        default: 0 // Rating trung bình, sẽ được tính toán lại mỗi khi có review mới
+    },
     isFlashSale: { type: Boolean, default: false },
+    numReviews: {
+        type: Number,
+        default: 0 // Tổng số lượng review
+    },
     discount: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Discount',

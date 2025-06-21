@@ -1,0 +1,39 @@
+
+const jwt = require('jsonwebtoken');
+
+const verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ message: 'Không tìm thấy token. Yêu cầu xác thực.' });
+    }
+
+
+    //  server đang dùng khóa nào để XÁC THỰC token.
+    console.log('[AUTH MIDDLEWARE] Đang XÁC THỰC token với khóa bí mật:', process.env.JWT_SECRET);
+
+
+    if (!process.env.JWT_SECRET) {
+        return res.status(500).json({ message: "Lỗi cấu hình: JWT_SECRET không được tìm thấy trên server." });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) {
+            console.error('[AUTH MIDDLEWARE] Lỗi xác thực JWT:', err.message); //  log lỗi chi tiết
+            return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn!' });
+        }
+        req.user = user;
+        next();
+    });
+};
+
+const verifyAdmin = (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        return res.status(403).json({ message: 'Yêu cầu quyền Admin. Truy cập bị từ chối.' });
+    }
+};
+
+module.exports = { verifyToken, verifyAdmin };

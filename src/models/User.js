@@ -11,6 +11,6 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-//  Hook ghi nhận tạo user mới vào Stat
+
 
 module.exports = mongoose.model('User', userSchema);

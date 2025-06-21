@@ -1,11 +1,13 @@
+
+const dotenv = require('dotenv');
+dotenv.config();
+
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const connectDB = require('./src/config/db');
 const web = require('./src/router/web');
 const { scheduleCleanup } = require('./src/cron/cleanup');
 
-dotenv.config();
 
 
 connectDB();
