@@ -2,6 +2,31 @@ const Product = require('../models/Product');
 const Category = require('../models/Category');
 const Discount = require('../models/Discount');
 const multer = require('multer');
+const slugify = require('slugify');
+
+
+
+const generateUniqueSlug = async (name) => {
+    const baseSlug = slugify(name, { lower: true, strict: true, locale: 'vi' });
+    let slug = baseSlug;
+    let counter = 0;
+
+    // Vòng lặp để đảm bảo slug là duy nhất trong database
+    while (await Product.findOne({ slug: slug })) {
+        counter++;
+        const randomString = Math.random().toString(36).substring(2, 6);
+        slug = `${baseSlug}-${randomString}`;
+        // Phòng trường hợp hi hữu bị lặp vô tận
+        if (counter > 5) {
+            slug = `${baseSlug}-${Date.now()}`;
+            break;
+        }
+    }
+    return slug;
+};
+
+
+
 exports.createProduct = async (data) => {
     console.log(' [Service] Dữ liệu nhận được để tạo sản phẩm.');
     const category = await Category.findById(data.category);
@@ -15,7 +40,10 @@ exports.createProduct = async (data) => {
         price: data.price,
         stock: data.stock,
         category: data.category,
-        images: data.images
+        images: data.images,
+        options: data.options || [],
+
+
     });
     console.log(' [Service] Sản phẩm đã tạo thành công.');
     return product;
@@ -221,22 +249,84 @@ exports.isProductNameDuplicate = async (name, excludeProductId) => {
 exports.deleteProduct = async (id) => {
     return await Product.findByIdAndDelete(id);
 };
-// add discount
-// exports.assignDiscounts = async (productId, discountIds) => {
-//     const product = await Product.findById(productId);
-//     if (!product) {
-//         throw new Error('Khong tim thay san pham');
-//     }
-//     await Discount.updateMany({ appliesTo: productId },
-//         { $pull: { appliesTo: productId } }
-//     );
 
-//     if (discountIds && discountIds.length > 0) {
-//         await Discount.updateMany(
-//             { _id: { $in: discountIds } },
-//             { $addToSet: { appliesTo: productId } }
-//         );
-//     }
 
-//     return { success: true, message: 'Cập nhật mã giảm giá cho sản phẩm thành công.' };
-// }
+
+
+//  HÀM CHO CLIENT-SIDE (TRANG CHỦ, TRANG CHI TIẾT) 
+
+
+const processProductsForClient = (products) => {
+    return products.map(product => {
+        let finalPrice = product.price;
+        let discountPercent = 0;
+        if (product.discount && product.discount.isActive) {
+            const discount = product.discount;
+            const discountAmount = discount.discountType === 'percent' ? product.price * (discount.value / 100) : discount.value;
+            finalPrice = Math.max(0, product.price - discountAmount);
+            if (product.price > 0) {
+                discountPercent = Math.round((discountAmount / product.price) * 100);
+            }
+        }
+        const imageBase64 = (product.images && product.images.length > 0 && product.images[0].data)
+            ? `data:${product.images[0].contentType};base64,${product.images[0].data.toString('base64')}` : null;
+        return {
+            _id: product._id,
+            name: product.name,
+            slug: product.slug,
+            description: product.description,
+            price: product.price,
+            finalPrice: finalPrice,
+            rating: product.rating,
+            sold: product.sold,
+            discountPercent: discountPercent,
+            imageBase64,
+        };
+    });
+};
+
+exports.getNewestProducts = async (limit = 8) => {
+    const products = await Product.find({}).sort({ createdAt: -1 }).limit(limit).populate('discount').lean();
+    return processProductsForClient(products);
+};
+
+exports.getHotProducts = async (limit = 8) => {
+    const products = await Product.find({}).sort({ sold: -1 }).limit(limit).populate('discount').lean();
+    return processProductsForClient(products);
+};
+
+exports.getPopularProducts = async (limit = 3) => {
+    const products = await Product.find({}).sort({ rating: -1, numReviews: -1 }).limit(limit).lean();
+    return products.map(p => ({
+        _id: p._id,
+        name: p.name,
+        description: p.description,
+        imageBase64: (p.images && p.images.length > 0 && p.images[0].data) ? `data:${p.images[0].contentType};base64,${p.images[0].data.toString('base64')}` : null,
+    }));
+};
+
+//lấy chi tiết sản phẩm
+exports.getProductById = async (id) => {
+    const product = await Product.findById(id).populate('category', 'name').populate('discount').lean();
+    if (!product) {
+        return null;
+    }
+    let finalPrice = product.price;
+    if (product.discount && product.discount.isActive) {
+        const discount = product.discount;
+        const discountAmount = discount.discountType === 'percent' ? product.price * (discount.value / 100) : discount.value;
+        finalPrice = Math.max(0, product.price - discountAmount);
+    }
+    const imagesBase64 = product.images && product.images.length > 0
+        ? product.images.map(img => `data:${img.contentType};base64,${img.data.toString('base64')}`) : [];
+    return { ...product, finalPrice, images: imagesBase64 };
+};
+
+exports.getRelatedProducts = async (productId) => {
+    const currentProduct = await Product.findById(productId).select('category');
+    if (!currentProduct || !currentProduct.category) {
+        return [];
+    }
+    const products = await Product.find({ category: currentProduct.category, _id: { $ne: productId } }).limit(4).populate('discount').lean();
+    return processProductsForClient(products);
+};

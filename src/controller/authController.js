@@ -125,3 +125,40 @@ exports.deleteUserById = async (req, res) => {
         res.status(500).json({ message: 'Lỗi server khi xóa user' });
     }
 };
+///
+exports.updateProfile = async (req, res) => {
+    try {
+        // Lấy userId từ token đã được xác thực bởi middleware verifyToken
+
+        const userId = req.user.id;
+        const dataToUpdate = req.body; // { name, address, phone }
+
+        const updatedUser = await auhtService.updateUserProfile(userId, dataToUpdate);
+
+        res.status(200).json({
+            success: true,
+            message: 'Cập nhật thông tin thành công!',
+            user: updatedUser // Trả về user đã cập nhật để frontend update Redux
+        });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+exports.changePassword = async (req, res) => {
+    try {
+        // Lấy userId từ token
+        const userId = req.user.id;
+        const { oldPassword, newPassword } = req.body;
+
+        if (!oldPassword || !newPassword) {
+            return res.status(400).json({ success: false, message: 'Vui lòng cung cấp mật khẩu cũ và mới.' });
+        }
+
+        await auhtService.changeUserPassword(userId, oldPassword, newPassword);
+
+        res.status(200).json({ success: true, message: 'Đổi mật khẩu thành công!' });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+};

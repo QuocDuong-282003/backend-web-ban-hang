@@ -54,3 +54,33 @@ exports.deleteUser = async (id) => {
     if (!deleted) throw new Error('Không tìm thấy user để xóa');
     return true;
 };
+
+
+//
+exports.updateUserProfile = async (userId, dataToUpdate) => {
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Người dùng không tồn tại.');
+
+    if (dataToUpdate.name) user.name = dataToUpdate.name;
+    if (dataToUpdate.address) user.address = dataToUpdate.address;
+    if (dataToUpdate.phone) user.phone = dataToUpdate.phone;
+
+    await user.save();
+
+    // Trả về dữ liệu người dùng đã cập nhật, loại bỏ mật khẩu
+    const { password, ...updatedUserData } = user._doc;
+    return updatedUserData;
+};
+
+exports.changeUserPassword = async (userId, oldPassword, newPassword) => {
+    const user = await User.findById(userId);
+    if (!user) throw new Error('Người dùng không tồn tại.');
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) throw new Error('Mật khẩu cũ không đúng.');
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    return true;
+};

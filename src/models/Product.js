@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    slug: { type: String, unique: false },
+
+    slug: { type: String, unique: true, index: true },
     description: String,
     price: { type: Number, required: true },
     stock: Number,
@@ -13,6 +14,7 @@ const productSchema = new mongoose.Schema({
         data: Buffer,       // Dữ liệu ảnh thô
         contentType: String // Kiểu file, ví dụ: 'image/jpeg'
     }],
+    options: [{ type: String }],
     sold: { type: Number, default: 0 },
     rating: {
         type: Number,
