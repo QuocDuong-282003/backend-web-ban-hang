@@ -61,8 +61,20 @@ exports.getNewsBySlug = async (req, res) => {
     try {
         const article = await newsService.getNewsBySlug(req.params.slug);
         if (!article) return res.status(404).json({ message: "khong tim thay bai viet" });
-        res.status(200).json(article);
+        res.status(200).json({ data: article });
     } catch (error) {
         res.status(500).json({ message: 'Loi server', error: error.message });
     }
 }
+//
+exports.uploadContentImage = (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Vui lòng chọn một file ảnh.' });
+        }
+        const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+        res.status(201).json({ url: fileUrl });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server khi tải ảnh content.', error: error.message });
+    }
+};

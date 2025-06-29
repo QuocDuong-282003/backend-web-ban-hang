@@ -1,5 +1,7 @@
 const News = require('../models/News');
 const slugify = require('slugify');
+const fs = require('fs');
+const path = require('path')
 // func helper for client/admin
 const processNewForClient = (newsItem) => {
     if (!newsItem) return null;
@@ -48,20 +50,53 @@ exports.updateNews = async (id, data, file) => {
     return News.findByIdAndUpdate(id, updateData, { new: true });
 }
 exports.deleteNews = async (id) => {
+
+    const article = await News.findById(id).lean();
+    if (!article) {
+        return null;
+    }
+
+    // xuất và xóa các file ảnh từ content
+    const content = article.content || '';
+    const imageUrls = content.match(/http[s]?:\/\/[^\s")]+\/uploads\/[^\s")]+/g);
+
+    if (imageUrls && imageUrls.length > 0) {
+        imageUrls.forEach(url => {
+            try {
+                // Chuyển URL thành đường dẫn file trên server
+                const urlObject = new URL(url);
+
+                const filePath = path.join(process.cwd(), urlObject.pathname);
+
+                if (fs.existsSync(filePath)) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error(`Lỗi khi xóa file content: ${filePath}`, err);
+                        } else {
+                            console.log(`Đã xóa file content: ${filePath}`);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error(`URL không hợp lệ, không thể xóa file: ${url}`, e);
+            }
+        });
+    }
+
     return News.findByIdAndDelete(id);
-}
+};
+
 // get all new for client
 
 exports.getAllNews = async (options = {}) => {
     const { page = 1, limit = 10 } = options;
     const query = { status: 'published' };
 
-    // Thêm .select('-content') để tối ưu cho người dùng cuối
     const articles = await News.find(query)
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(parseInt(limit))
-        .select('-content') // <-- TỐI ƯU HÓA CHO CLIENT
+        .select('-content')
         .lean();
 
     const totalArticles = await News.countDocuments(query);
