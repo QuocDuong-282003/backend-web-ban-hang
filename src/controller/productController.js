@@ -12,7 +12,11 @@ exports.createProduct = async (req, res) => {
             return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin sản phẩm và ảnh.' });
         }
         let parsedOptions = options ? JSON.parse(options) : [];
-        const formattedImages = imageFiles.map(file => ({ data: file.buffer, contentType: file.mimetype }));
+        const formattedImages = imageFiles.map(file =>
+        ({
+            data: file.buffer, contentType: file.mimetype
+
+        }));
         const productData = { name, description, price, stock, category, images: formattedImages, options: parsedOptions };
         const product = await productService.createProduct(productData);
         res.status(201).json(product);
@@ -91,7 +95,7 @@ exports.assignDiscountsToProduct = async (req, res) => {
 // === CONTROLLERS CHO CLIENT-SIDE ===
 exports.getProductBySlug = async (req, res) => {
     try {
-        const product = await productService.getProductBySlug(req.params.slug);
+        const product = await productService.generateUniqueSlug(req.params.slug);
         if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
         res.status(200).json(product);
     } catch (err) { res.status(500).json({ message: err.message }); }
@@ -123,4 +127,26 @@ exports.getPopularProducts = async (req, res) => {
         const products = await productService.getPopularProducts();
         res.status(200).json(products);
     } catch (error) { res.status(500).json({ message: "Lỗi khi lấy sản phẩm phổ biến", error: error.message }); }
+};
+//
+exports.filterProducts = async (req, res) => {
+    try {
+        const result = await productService.getFilterProducts(req.query);
+        res.status(200).json(result);
+    } catch (error) {
+        console.log("check san pham", error);
+        res.status(500).json({ message: 'Loi server khi loc san pham', error: error.message });
+
+    }
+}
+// 
+exports.getFilterOptions = async (req, res) => {
+    try {
+        const options = await productService.getFilterOptions();
+        res.status(200).json(options);
+    } catch (error) {
+        console.log("check data options", error);
+        res.status(500).json({ message: 'Loi server khi loc', error: error.message });
+
+    }
 };

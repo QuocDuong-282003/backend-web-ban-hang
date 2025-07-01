@@ -254,8 +254,6 @@ exports.deleteProduct = async (id) => {
 
 
 //  HÀM CHO CLIENT-SIDE (TRANG CHỦ, TRANG CHI TIẾT) 
-
-
 const processProductsForClient = (products) => {
     return products.map(product => {
         let finalPrice = product.price;
@@ -283,6 +281,63 @@ const processProductsForClient = (products) => {
             imageBase64,
         };
     });
+};
+//LẤY CÁC TÙY CHỌN CHO BỘ LỌC
+exports.getFilterOptions = async () => {
+    const brands = await Product.distinct('brand');
+    brands.sort();
+    return { brands };
+
+};
+// loc and sap xep san pham theo yeu cau
+exports.getFilterProducts = async (filters) => {
+    const {
+        page = 1,
+        limit = 12,
+        sort = 'popular',
+        priceRange,
+        brands,
+        search,
+    } = filters;
+    let query = {};
+    if (priceRange) {
+        const [minPrice, maxPrice] = priceRange.split('-').map(Number);
+        query.price = { $gte: minPrice, $lte: maxPrice };
+    }
+    if (brands) {
+        query.brands = { $in: brands.split(',') };
+    }
+    if (search) {
+        query.name = { $regex: search, $options: 'i' };
+    }
+    let sortOption = {};
+    switch (sort) {
+        case 'price-asc': sortOption.price = 1; break;
+        case 'price-desc': sortOption.price = -1; break;
+        case 'name-asc': sortOption.name = 1; break;
+        case 'name-desc': sortOption.name = -1; break;
+        case 'oldest': sortOption.createdAt = 1; break;
+        case 'newest': sortOption.createdAt = -1; break;
+        case 'best-selling': sortOption.sold = -1; break;
+        default:
+            sortOption = { sold: -1, rating: -1, createdAt: -1 }
+    }
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [products, totalItems] = await Promise.all([
+        Product.find(query).populate('discount')
+            .sort(sortOption).skip(skip).limit(parseInt(limit)).lean(),
+        Product.countDocuments(query)
+    ])
+    const totalPages = Math.ceil(totalItems / parseInt(limit));
+    const processedData = processProductsForClient(products);
+    return {
+        data: processedData,
+        pagination: {
+            currentPage: parseInt(page),
+            totalPages,
+            totalItems
+        }
+    };
 };
 
 exports.getNewestProducts = async (limit = 8) => {

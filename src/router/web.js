@@ -58,7 +58,9 @@ router.get('/products/hot', productController.getHotProducts);
 router.get('/products/popular', productController.getPopularProducts);
 router.get('/products/related/:id', productController.getRelatedProducts);
 router.get('/products/slug/:slug', productController.getProductBySlug);
-
+//
+router.get('/products/filters-data', productController.getFilterOptions);
+router.get('/products/filter', productController.filterProducts);
 // ============================================================
 //  CATEGORY - Danh mục sản phẩm
 // ============================================================
