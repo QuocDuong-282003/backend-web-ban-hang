@@ -9,7 +9,7 @@ const orderItemSchema = new mongoose.Schema({
         required: true,
         index: true
     },
-
+    variant: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductVariant', required: true },
     product: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Product',
@@ -20,7 +20,10 @@ const orderItemSchema = new mongoose.Schema({
         required: true,
         min: [1, 'Số lượng sản phẩm phải lớn hơn 0']
     },
-
+    option: {
+        type: String,
+        default: null
+    },
     price: {
         type: Number,
         required: true

@@ -1,94 +1,182 @@
-// --- THAY THẾ TOÀN BỘ FILE: controllers/productController.js ---
 
 const productService = require('../services/productService');
 const multer = require('multer');
 
-// === CONTROLLERS CHO CRUD SẢN PHẨM (ADMIN) ===
 exports.createProduct = async (req, res) => {
     try {
-        const { name, description, price, stock, category, options } = req.body;
-        const imageFiles = req.files.images;
-        if (!name || !description || !price || !stock || !category || !imageFiles || imageFiles.length === 0) {
-            return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin sản phẩm và ảnh.' });
-        }
-        let parsedOptions = options ? JSON.parse(options) : [];
-        const formattedImages = imageFiles.map(file =>
-        ({
-            data: file.buffer, contentType: file.mimetype
+        const { name, description, price, stock, category, brand, options } = req.body;
 
-        }));
-        const productData = { name, description, price, stock, category, images: formattedImages, options: parsedOptions };
-        const product = await productService.createProduct(productData);
-        res.status(201).json(product);
-    } catch (err) {
-        if (err instanceof multer.MulterError) return res.status(400).json({ message: `Lỗi Multer: ${err.message}` });
-        console.error(' [Controller] Lỗi khi tạo sản phẩm:', err);
-        res.status(500).json({ message: 'Lỗi server khi tạo sản phẩm', error: err.message });
-    }
-};
-exports.getProductById = async (req, res) => {
-    try {
-        // Gọi thẳng đến service, nhưng hàm này trong service không xử lý ảnh và giá giảm
-        // Chúng ta có thể tạo một hàm service riêng cho nó nếu cần, nhưng hiện tại findById là đủ
-        const product = await productService.getProductById(req.params.id);
-        if (!product) {
-            return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
+
+        if (!req.files || !req.files.images || req.files.images.length === 0) {
+            return res.status(400).json({ message: 'Vui lòng tải lên ít nhất một ảnh cho sản phẩm (trường "images").' });
         }
-        res.status(200).json(product);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
+
+        // Chuyển đổi file ảnh sang định dạng để lưu vào DB (Buffer)
+        const imageBuffers = req.files.images.map(file => ({
+            data: file.buffer,
+            contentType: file.mimetype
+        }));
+
+
+        if (req.files.coverImage && req.files.coverImage.length > 0) {
+            const coverImage = {
+                data: req.files.coverImage[0].buffer,
+                contentType: req.files.coverImage[0].mimetype
+            };
+
+            imageBuffers.unshift(coverImage);
+        }
+
+        const productData = {
+            name,
+            description,
+            price: Number(price),
+            stock: Number(stock),
+            category,
+            brand,
+            options: options ? JSON.parse(options) : [],
+            images: imageBuffers
+        };
+
+        // Gọi service để thực hiện logic tạo sản phẩm
+        const newProduct = await productService.createProductWithOptions(productData);
+
+        // Trả về thành công
+        res.status(201).json({ message: 'Tạo sản phẩm thành công!', data: newProduct });
+
+    } catch (error) {
+        console.error('[Controller] Lỗi khi tạo sản phẩm:', error);
+        res.status(500).json({ message: error.message || 'Lỗi server khi tạo sản phẩm.' });
     }
 };
+
+
+
+// exports.updateProduct = async (req, res) => {
+//     try {
+//         const productId = req.params.id;
+//         const updateData = { ...req.body };
+
+//         if (updateData.price) updateData.price = Number(updateData.price);
+//         if (updateData.stock) updateData.stock = Number(updateData.stock);
+//         if (updateData.options) updateData.options = JSON.parse(updateData.options);
+
+//         // Chỉ cập nhật ảnh nếu có file mới được tải lên
+//         if (req.files && Object.keys(req.files).length > 0) {
+//             updateData.images = [];
+//             if (req.files.coverImage && req.files.coverImage.length > 0) {
+//                 updateData.images.push({
+//                     data: req.files.coverImage[0].buffer,
+//                     contentType: req.files.coverImage[0].mimetype
+//                 });
+//             }
+//             if (req.files.images && req.files.images.length > 0) {
+//                 const otherImages = req.files.images.map(file => ({
+//                     data: file.buffer,
+//                     contentType: file.mimetype
+//                 }));
+//                 updateData.images.push(...otherImages);
+//             }
+//         }
+
+//         const updatedProduct = await productService.updateProductWithOptions(productId, updateData);
+//         if (!updatedProduct) {
+//             return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
+//         }
+//         res.status(200).json({ message: 'Cập nhật sản phẩm thành công!', data: updatedProduct });
+//     } catch (error) {
+//         console.error('[Controller] Lỗi khi cập nhật sản phẩm:', error);
+//         res.status(500).json({ message: error.message || 'Lỗi server khi cập nhật sản phẩm.' });
+//     }
+// };
+// --- THAY THẾ HÀM updateProduct TRONG: controllers/productController.js ---
+
+// --- THAY THẾ HÀM updateProduct TRONG: controllers/productController.js ---
 
 exports.updateProduct = async (req, res) => {
     try {
         const productId = req.params.id;
-        const updateData = req.body;
-        const files = req.files;
+        const updateData = { ...req.body };
+
+        console.log('[Controller] Dữ liệu nhận được từ body:', req.body);
+        console.log('[Controller] Files nhận được từ multer:', req.files); // Kiểm tra xem có file không
+
+        if (updateData.price) updateData.price = Number(updateData.price);
+        if (updateData.stock) updateData.stock = Number(updateData.stock);
+        if (updateData.sold) updateData.sold = Number(updateData.sold);
         if (updateData.options) updateData.options = JSON.parse(updateData.options);
-        if (updateData.name) {
-            const isDuplicate = await productService.isProductNameDuplicate(updateData.name.trim(), productId);
-            if (isDuplicate) return res.status(409).json({ message: `Tên sản phẩm "${updateData.name.trim()}" đã tồn tại.` });
-            updateData.name = updateData.name.trim();
+
+        // Xử lý ảnh MỘT CÁCH CẨN THẬN
+        if (req.files && Object.keys(req.files).length > 0) {
+            const newImages = [];
+            // Giả sử middleware của bạn đặt tên file là 'images'
+            if (req.files.images) {
+                const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
+                imageFiles.forEach(file => {
+                    newImages.push({ data: file.buffer, contentType: file.mimetype });
+                });
+            }
+
+            if (newImages.length > 0) {
+                updateData.images = newImages;
+                console.log(`[Controller] Đã chuẩn bị ${newImages.length} ảnh để cập nhật.`);
+            }
         }
-        if (files && files.images && files.images.length > 0) {
-            updateData.images = files.images.map(file => ({ data: file.buffer, contentType: file.mimetype }));
+
+        const updatedProduct = await productService.updateProductWithOptions(productId, updateData);
+
+        if (!updatedProduct) {
+            return res.status(404).json({ message: 'Không tìm thấy sản phẩm để cập nhật' });
         }
-        const updatedProduct = await productService.updateProduct(productId, updateData);
-        if (!updatedProduct) return res.status(404).json({ message: 'Không tìm thấy sản phẩm để cập nhật' });
-        res.status(200).json(updatedProduct);
-    } catch (err) {
-        if (err instanceof multer.MulterError) return res.status(400).json({ message: `Lỗi Multer: ${err.message}` });
-        console.error(' [Controller] Lỗi khi cập nhật sản phẩm:', err);
-        res.status(500).json({ message: 'Lỗi server khi cập nhật sản phẩm', error: err.message });
+        res.status(200).json({ message: 'Cập nhật sản phẩm thành công!', data: updatedProduct });
+    } catch (error) {
+        console.error('[Controller] Lỗi khi cập nhật sản phẩm:', error);
+        res.status(500).json({ message: 'Lỗi server khi cập nhật sản phẩm', error: error.message });
+    }
+};
+
+exports.getAllProducts = async (req, res) => {
+    try {
+        const products = await productService.getAllProducts();
+        res.status(200).json({ message: 'Lấy danh sách sản phẩm thành công', data: products });
+    } catch (error) {
+        console.error('[Controller] Lỗi khi lấy tất cả sản phẩm:', error);
+        res.status(500).json({ message: 'Lỗi server khi lấy danh sách sản phẩm' });
+    }
+};
+
+exports.getProductById = async (req, res) => {
+    try {
+        const product = await productService.getProductById(req.params.id);
+        if (!product) {
+            return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
+        }
+        res.status(200).json({ message: 'Lấy sản phẩm thành công', data: product });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server' });
     }
 };
 
 exports.deleteProduct = async (req, res) => {
     try {
-        const deleted = await productService.deleteProduct(req.params.id);
-        if (!deleted) return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
-        res.json({ message: 'Xóa thành công' });
-    } catch (err) { res.status(500).json({ message: err.message }); }
-};
-
-exports.getAllProducts = async (req, res) => {
-    try {
-        const productsWithDetails = await productService.getAllProducts();
-        res.status(200).json(productsWithDetails);
-    } catch (err) {
-        console.error('[Controller] Lỗi khi lấy danh sách sản phẩm cho admin:', err.message);
-        res.status(500).json({ message: 'Lỗi server khi lấy danh sách sản phẩm' });
+        const deletedProduct = await productService.deleteProduct(req.params.id);
+        if (!deletedProduct) {
+            return res.status(404).json({ message: 'Không tìm thấy sản phẩm để xóa' });
+        }
+        res.status(200).json({ message: 'Xóa sản phẩm thành công' });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server khi xóa sản phẩm' });
     }
 };
 
 exports.assignDiscountsToProduct = async (req, res) => {
     try {
+        const productId = req.params.id; // Lấy id từ params
         const { discountId } = req.body;
-        const result = await productService.assignDiscount(req.params.id, discountId);
+        const result = await productService.assignDiscount(productId, discountId);
         res.status(200).json(result);
     } catch (error) {
-        res.status(error.statusCode || 500).json({ message: error.message || 'Lỗi server khi gán mã giảm giá.' });
+        res.status(error.statusCode || 500).json({ message: error.message || 'Lỗi server' });
     }
 };
 

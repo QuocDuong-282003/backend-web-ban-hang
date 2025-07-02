@@ -27,9 +27,9 @@ const productVariantSchema = new mongoose.Schema({
         required: [true, 'SKU là bắt buộc']
     },
     images: [{
-        data: Buffer,
-        contentType: String
-    }]
+        data: Buffer,       // Dữ liệu ảnh thô
+        contentType: String // Kiểu file, ví dụ: 'image/jpeg'
+    }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('ProductVariant', productVariantSchema);

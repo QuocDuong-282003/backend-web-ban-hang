@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const Product = require('../models/Product');
+const cartService = require('./cartService'); // THÊM DÒNG NÀY
 
 const ALLOWED_TRANSITIONS = {
     pending: ['processing', 'cancelled'],
@@ -15,7 +16,7 @@ const ALLOWED_TRANSITIONS = {
 
 // === 1. TẠO ĐƠN HÀNG 
 exports.createOrder = async (orderInput) => {
-    const { userId, cartItems, shippingInfo, paymentMethod, notes } = orderInput;
+    const { userId, cartItems, shippingInfo, paymentMethod, notes, clearCart = true } = orderInput; // Thêm cờ clearCart
     if (!cartItems || cartItems.length === 0) throw new Error('Giỏ hàng không được để trống.');
 
     // Bước 1: Lấy thông tin sản phẩm và tính toán giá
@@ -44,8 +45,13 @@ exports.createOrder = async (orderInput) => {
 
         const image = product.images && product.images.length > 0 ? `data:${product.images[0].contentType};base64,${product.images[0].data.toString('base64')}` : null;
         processedItems.push({
-            product: product._id, name: product.name, image: image,
-            price: finalPricePerItem, quantity: cartItem.quantity,
+            product: product._id,
+            name: product.name,
+            image: image,
+            price: finalPricePerItem,
+            quantity: cartItem.quantity,
+            // Thêm option vào order item để lưu trữ
+            option: cartItem.option
         });
 
         calculatedItemsPrice += product.price * cartItem.quantity;
@@ -53,20 +59,17 @@ exports.createOrder = async (orderInput) => {
     }
 
     // Trừ tồn kho trước để giảm thiểu rủi ro
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
         const stockUpdatePromises = processedItems.map(item =>
             Product.findByIdAndUpdate(item.product, {
                 $inc: { stock: -item.quantity, sold: +item.quantity }
-            })
+            }, { session })
         );
         await Promise.all(stockUpdatePromises);
-    } catch (stockError) {
-        throw new Error("Không thể cập nhật tồn kho sản phẩm, vui lòng thử lại.");
-    }
 
-    // Tạo Order và OrderItem
-    let createdOrder = null;
-    try {
+        // Tạo Order và OrderItem
         const shippingPrice = 30000;
         const totalPrice = (calculatedItemsPrice - totalDiscountAmount) + shippingPrice;
 
@@ -75,33 +78,32 @@ exports.createOrder = async (orderInput) => {
             discountAmount: totalDiscountAmount, totalPrice, shippingInfo,
             paymentInfo: { method: paymentMethod, status: 'pending' }, notes, status: 'pending'
         });
-        createdOrder = await order.save();
+        const [createdOrder] = await Order.create([order], { session });
 
         const orderItemsToCreate = processedItems.map(item => ({ ...item, order: createdOrder._id }));
-        const createdItems = await OrderItem.insertMany(orderItemsToCreate);
+        const createdItems = await OrderItem.insertMany(orderItemsToCreate, { session });
 
         createdOrder.items = createdItems.map(item => item._id);
-        await createdOrder.save();
+        await createdOrder.save({ session });
 
+        // SỬA Ở ĐÂY: Xóa giỏ hàng nếu cần
+        if (clearCart) {
+            await cartService.clearCart(userId);
+        }
+
+        await session.commitTransaction();
         return createdOrder;
 
     } catch (orderError) {
-        // Cố gắng hoàn tác tồn kho nếu có lỗi khi tạo đơn hàng
-        console.error("Lỗi khi tạo bản ghi đơn hàng, đang cố gắng hoàn tác tồn kho:", orderError);
-        const stockRevertPromises = processedItems.map(item =>
-            Product.findByIdAndUpdate(item.product, {
-                $inc: { stock: +item.quantity, sold: -item.quantity }
-            })
-        );
-        await Promise.all(stockRevertPromises);
-
-        if (createdOrder && createdOrder._id) {
-            await Order.findByIdAndDelete(createdOrder._id);
-        }
-
+        await session.abortTransaction();
+        // Không cần hoàn tác tồn kho vì transaction sẽ tự rollback
+        console.error("Lỗi khi tạo đơn hàng, transaction đã được rollback:", orderError);
         throw new Error("Đã có lỗi xảy ra trong quá trình tạo đơn hàng, vui lòng thử lại.");
+    } finally {
+        session.endSession();
     }
 };
+
 
 // === 2. LẤY DANH SÁCH ĐƠN HÀNG (ĐÃ SỬA ĐỂ LÀM VIỆC VỚI ORDERITEM) ===
 exports.getAllOrders = async (options = {}) => {
@@ -118,18 +120,18 @@ exports.getAllOrders = async (options = {}) => {
             .populate({
                 path: 'items', // Tên trường trong Order model
                 model: 'OrderItem', // Chỉ định model để populate
-                select: 'name quantity price image' // Chỉ lấy các trường cần thiết từ OrderItem
+                select: 'name quantity price image option' // Chỉ lấy các trường cần thiết từ OrderItem
             })
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
-            .limit(limit)
+            .limit(parseInt(limit))
             .lean(),
         Order.countDocuments(query)
     ]);
 
     return {
         data: orders,
-        currentPage: page,
+        currentPage: parseInt(page),
         totalPages: Math.ceil(totalItems / limit) || 1,
         totalItems
     };
@@ -157,6 +159,7 @@ exports.updateOrderStatus = async (orderId, newStatus) => {
     }
 
     if (newStatus === 'cancelled') {
+        // Hoàn lại tồn kho
         const orderItems = await OrderItem.find({ order: order._id });
         const stockUpdatePromises = orderItems.map(item =>
             Product.findByIdAndUpdate(item.product, {

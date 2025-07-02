@@ -162,3 +162,13 @@ exports.changePassword = async (req, res) => {
         res.status(400).json({ success: false, message: error.message });
     }
 };
+
+exports.getProfile = async (req, res) => {
+    try {
+        // req.user.id được thêm vào từ middleware verifyToken
+        const user = await auhtService.getUserProfile(req.user.id);
+        res.status(200).json({ user });
+    } catch (err) {
+        res.status(404).json({ message: err.message });
+    }
+};

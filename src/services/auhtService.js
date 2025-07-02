@@ -84,3 +84,9 @@ exports.changeUserPassword = async (userId, oldPassword, newPassword) => {
 
     return true;
 };
+exports.getUserProfile = async (userId) => {
+    const user = await User.findById(userId).select('-password'); // .select('-password') để không trả về mật khẩu
+    if (!user) throw new Error('Không tìm thấy người dùng.');
+    return user;
+};
+

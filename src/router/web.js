@@ -11,6 +11,7 @@ const orderController = require('../controller/orderController');
 const dashboardController = require('../controller/dashboardController');
 const reviewController = require('../controller/reviewController');
 const newController = require('../controller/newController');
+const cartController = require('../controller/cartController');
 // === MIDDLEWARE ===
 const uploadImagesMiddleware = require('../../src/config/upLoadImg');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
@@ -23,6 +24,7 @@ router.post('/login', authController.login);
 router.post('/register', authController.register);
 router.get('/users', authController.getAllUsersTable);
 router.delete('/users/:id', authController.deleteUserById);
+router.get('/profile', verifyToken, authController.getProfile);
 
 // Tài khoản cá nhân (cần đăng nhập)
 router.put('/users/profile', verifyToken, authController.updateProfile);
@@ -124,4 +126,10 @@ router.delete('/admin/news/:id', newController.deleteNews); //
 router.get('/news', newController.getAllNews); // Lấy danh sách tin tức (có phân trang)
 router.get('/news/:slug', newController.getNewsBySlug); // Lấy chi tiết một bài viết
 
+
+// cart
+router.get('/cart-all', verifyToken, cartController.getCart);
+router.post('/add-cart', verifyToken, cartController.addToCart);
+router.put('/update-cart/:id', verifyToken, cartController.updateCartItem);
+router.delete('/delete-cart/:id', verifyToken, cartController.removeCartItem)
 module.exports = router;
