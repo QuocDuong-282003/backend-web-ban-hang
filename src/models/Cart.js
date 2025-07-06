@@ -1,19 +1,17 @@
-// --- THAY THẾ TOÀN BỘ FILE: src/models/Cart.js ---
 const mongoose = require('mongoose');
 
-// Schema cho một item trong giỏ hàng
 const cartItemSchema = new mongoose.Schema({
-    // Lưu ID của sản phẩm chính để tham chiếu nhanh
+
     product: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Product',
         required: true
     },
-    // Lưu ID của biến thể cụ thể (quan trọng nhất)
-    productVariant: {
+    variant: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'ProductVariant',
-        required: true
+        required: false,
+        default: null,
     },
     quantity: {
         type: Number,
@@ -21,7 +19,6 @@ const cartItemSchema = new mongoose.Schema({
         min: 1,
         default: 1
     },
-    // Lưu lại tên của option để tiện hiển thị
     option: {
         type: String,
         default: null

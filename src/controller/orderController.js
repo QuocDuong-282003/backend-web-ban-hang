@@ -3,6 +3,15 @@ const orderService = require('../services/orderService');
 
 //
 exports.createOrder = async (req, res) => {
+    console.log("=============================================");
+    console.log("BÊN TRONG orderController.createOrder");
+    console.log("--- 1. Kiểm tra req.user (từ authMiddleware) ---");
+    console.log(req.user);
+
+    console.log("--- 2. Kiểm tra req.body (dữ liệu từ frontend) ---");
+    console.log(JSON.stringify(req.body, null, 2)); // Dùng JSON.stringify để xem cấu trúc rõ hơn
+    console.log("=============================================");
+    // ==================================================
     try {
         const userId = req.body.userId || req.user?.id;
         const { items, shippingInfo, paymentMethod, notes } = req.body;
@@ -12,7 +21,7 @@ exports.createOrder = async (req, res) => {
 
         }
         const orderInput = {
-            userId, cartItems: items,
+            userId, items,
             shippingInfo, paymentMethod, notes
         };
         const order = await orderService.createOrder(orderInput);

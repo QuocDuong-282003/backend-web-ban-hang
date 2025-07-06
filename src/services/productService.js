@@ -196,16 +196,73 @@ exports.updateProductWithOptions = async (productId, updateData) => {
     return result;
 };
 
+// exports.getFilterProducts = async (filters) => {
+//     const { page = 1, limit = 12, sort = 'popular', priceRange, brands, search } = filters;
+//     let query = {};
+//     if (priceRange) {
+//         const [minPrice, maxPrice] = priceRange.split('-').map(Number);
+//         query.price = { $gte: minPrice, $lte: maxPrice };
+//     }
+//     if (brands) {
+//         query.brand = { $in: brands.split(',') };
+//     }
+//     if (search) {
+//         query.name = { $regex: search, $options: 'i' };
+//     }
+
+//     let sortOption = {};
+//     switch (sort) {
+//         case 'price-asc': sortOption.price = 1; break;
+//         case 'price-desc': sortOption.price = -1; break;
+//         default: sortOption = { sold: -1, rating: -1, createdAt: -1 };
+//     }
+
+//     const skip = (parseInt(page) - 1) * parseInt(limit);
+//     const [products, totalItems] = await Promise.all([
+//         Product.find(query)
+//             .populate('discount')
+//             .populate('variants', 'size color stock sku')
+//             .sort(sortOption)
+//             .skip(skip)
+//             .limit(parseInt(limit))
+//             .lean(),
+//         Product.countDocuments(query)
+//     ]);
+
+//     const totalPages = Math.ceil(totalItems / parseInt(limit));
+//     const processedData = processProductsForClient(products);
+//     return {
+//         data: processedData,
+//         pagination: {
+//             currentPage: parseInt(page),
+//             totalPages,
+//             totalItems
+//         }
+//     };
+// };
+// --- THAY THẾ LẠI HÀM "getFilterProducts" TRONG: src/services/productService.js ---
+
 exports.getFilterProducts = async (filters) => {
     const { page = 1, limit = 12, sort = 'popular', priceRange, brands, search } = filters;
+
     let query = {};
+
     if (priceRange) {
         const [minPrice, maxPrice] = priceRange.split('-').map(Number);
         query.price = { $gte: minPrice, $lte: maxPrice };
     }
-    if (brands) {
-        query.brands = { $in: brands.split(',') };
+
+    // --- PHẦN SỬA LỖI LỌC THƯƠNG HIỆU ---
+    if (brands && brands.length > 0) {
+        // brands có thể là một chuỗi 'Nike' hoặc một mảng ['Nike', 'Adidas']
+        // ta cần đảm bảo nó luôn là một mảng trước khi dùng $in
+        const brandsArray = Array.isArray(brands) ? brands : brands.split(',');
+
+        // Sửa tên trường từ `brands` thành `brand`
+        query.brand = { $in: brandsArray };
     }
+    // --- KẾT THÚC PHẦN SỬA ---
+
     if (search) {
         query.name = { $regex: search, $options: 'i' };
     }
@@ -214,10 +271,16 @@ exports.getFilterProducts = async (filters) => {
     switch (sort) {
         case 'price-asc': sortOption.price = 1; break;
         case 'price-desc': sortOption.price = -1; break;
-        default: sortOption = { sold: -1, rating: -1, createdAt: -1 };
+        case 'newest': sortOption.createdAt = -1; break;
+        case 'oldest': sortOption.createdAt = 1; break;
+        case 'best-selling': sortOption.sold = -1; break;
+        case 'name-asc': sortOption.name = 1; break;
+        case 'name-desc': sortOption.name = -1; break;
+        default: sortOption = { sold: -1, rating: -1 }; break;
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
+
     const [products, totalItems] = await Promise.all([
         Product.find(query)
             .populate('discount')
@@ -231,6 +294,7 @@ exports.getFilterProducts = async (filters) => {
 
     const totalPages = Math.ceil(totalItems / parseInt(limit));
     const processedData = processProductsForClient(products);
+
     return {
         data: processedData,
         pagination: {
@@ -240,7 +304,6 @@ exports.getFilterProducts = async (filters) => {
         }
     };
 };
-
 
 const processProductsForClient = (products) => {
     return products.map(product => {
@@ -368,16 +431,36 @@ exports.getPopularProducts = async (limit = 3) => {
 };
 
 exports.getProductById = async (id) => {
-    const product = await Product.findById(id).populate('category', 'name').populate('discount').populate('variants').lean();
-    if (!product) { return null; }
-    let finalPrice = product.price;
-    if (product.discount && product.discount.isActive) {
-        const discount = product.discount;
-        const discountAmount = discount.discountType === 'percent' ? product.price * (discount.value / 100) : discount.value;
-        finalPrice = Math.max(0, product.price - discountAmount);
+    try {
+        const product = await Product.findById(id)
+            .populate('category', 'name')
+            .populate('discount')
+            .populate('variants')
+            .lean();
+        if (!product) { return null; }
+        const cleanVariants = (Array.isArray(product.variants))
+            ? product.variants.filter(v => v !== null)
+            : [];
+        let finalPrice = product.price;
+        if (product.discount && product.discount.isActive) {
+            const discount = product.discount;
+            const discountAmount = discount.discountType === 'percent' ? product.price * (discount.value / 100) : discount.value;
+            finalPrice = Math.max(0, product.price - discountAmount);
+        }
+        const imagesBase64 = product.images && product.images.length > 0 ? product.images.map(img => `data:${img.contentType};base64,${img.data.toString('base64')}`) : [];
+        return {
+            ...product,
+            variants: cleanVariants, // Trả về mảng biến thể đã được làm sạch
+
+            finalPrice,
+            images: imagesBase64
+        };
+    } catch (error) {
+        // Nếu có lỗi trong quá trình truy vấn DB hoặc xử lý dữ liệu, log nó ra
+        console.error(`[Service] Lỗi khi xử lý getProductById cho ID ${id}:`, error);
+        // Ném lỗi lên để controller có thể bắt và trả về lỗi 500
+        throw error;
     }
-    const imagesBase64 = product.images && product.images.length > 0 ? product.images.map(img => `data:${img.contentType};base64,${img.data.toString('base64')}`) : [];
-    return { ...product, finalPrice, images: imagesBase64 };
 };
 
 exports.getRelatedProducts = async (productId) => {

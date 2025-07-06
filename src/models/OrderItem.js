@@ -9,7 +9,10 @@ const orderItemSchema = new mongoose.Schema({
         required: true,
         index: true
     },
-    variant: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductVariant', required: true },
+    variant: {
+        type: mongoose.Schema.Types.ObjectId, ref: 'ProductVariant', required: false,
+        default: null
+    },
     product: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Product',

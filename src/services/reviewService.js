@@ -3,7 +3,7 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const excel = require('exceljs');
-
+const mongoose = require('mongoose');
 // function private
 const updateProductRating = async (productId) => {
     const reviews = await Review.find({ product: productId });
@@ -18,12 +18,11 @@ const updateProductRating = async (productId) => {
 
 // function for admin
 exports.getAllReviewForAdmin = async (options) => {
-    // 1. Phân tích và chuyển đổi các tham số từ chuỗi sang số.
-    // Đặt giá trị mặc định nếu tham số không hợp lệ hoặc bị thiếu.
+
     const page = parseInt(options.page, 10) || 1;
     const limit = parseInt(options.limit, 10) || 10;
 
-    // 2. Kiểm tra để đảm bảo giá trị là số dương
+
     const safePage = page > 0 ? page : 1;
     const safeLimit = limit > 0 ? limit : 10;
 
@@ -32,7 +31,7 @@ exports.getAllReviewForAdmin = async (options) => {
             .populate('user', 'name email phone')
             .populate('product', 'name')
             .sort({ createdAt: -1 })
-            // 3. Sử dụng các giá trị số đã được làm sạch trong câu truy vấn
+
             .skip((safePage - 1) * safeLimit)
             .limit(safeLimit)
             .lean(),
@@ -49,39 +48,38 @@ exports.getAllReviewForAdmin = async (options) => {
 
 
 exports.exportReviewToExcel = async (reviewIds) => {
-    // Bước 1: Lấy dữ liệu review, POPULATE thêm email và phone từ User
+
     const reviews = await Review.find({ _id: { $in: reviewIds } })
-        .populate('user', 'name email phone') // <-- SỬA Ở ĐÂY
+        .populate('user', 'name email phone')
         .populate('product', 'name')
         .sort({ createdAt: -1 })
-        .lean(); // Dùng lean() để tăng tốc độ
+        .lean(); //   tăng tốc độ
 
     const workbook = new excel.Workbook();
     const worksheet = workbook.addWorksheet('Danh sách đánh giá');
 
-    // Bước 2: Thêm các cột mới vào file Excel
+    // các cột mới vào file Excel
     worksheet.columns = [
         { header: 'Ngày tạo', key: 'createdAt', width: 20 },
         { header: 'Sản phẩm', key: 'productName', width: 40 },
         { header: 'Người dùng', key: 'userName', width: 30 },
-        { header: 'Email', key: 'userEmail', width: 35 },        // <-- CỘT MỚI
-        { header: 'Số điện thoại', key: 'userPhone', width: 20 }, // <-- CỘT MỚI
+        { header: 'Email', key: 'userEmail', width: 35 },
+        { header: 'Số điện thoại', key: 'userPhone', width: 20 },
         { header: 'Số sao', key: 'rating', width: 10, style: { alignment: { horizontal: 'center' } } },
         { header: 'Bình luận', key: 'comment', width: 60, style: { alignment: { wrapText: true } } }
     ];
 
-    // Tùy chỉnh header cho đẹp hơn
     worksheet.getRow(1).font = { bold: true };
     worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
-    // Bước 3: Thêm dữ liệu vào các hàng, bao gồm cả các trường mới
+
     reviews.forEach(review => {
         worksheet.addRow({
             createdAt: review.createdAt,
             productName: review.product?.name || 'N/A',
             userName: review.user?.name || '[Đã xóa]',
-            userEmail: review.user?.email || 'N/A',      // <-- DỮ LIỆU MỚI
-            userPhone: review.user?.phone || 'N/A',      // <-- DỮ LIỆU MỚI
+            userEmail: review.user?.email || 'N/A',
+            userPhone: review.user?.phone || 'N/A',
             rating: review.rating,
             comment: review.comment || ''
         });
@@ -91,13 +89,13 @@ exports.exportReviewToExcel = async (reviewIds) => {
 };
 // fun for user
 exports.createReviewByUser = async (userId, productId, rating, comment) => {
-    // 1. Tìm tất cả orderId đã giao của user
+    // Tìm tất cả orderId đã giao của user
     const deliveredOrders = await Order.find({ user: userId, status: 'delivered' }).select('_id');
     if (deliveredOrders.length === 0)
         throw new Error('Bạn chưa có đơn hàng nào giao thành công !');
 
     const deliveredOrderIds = deliveredOrders.map(order => order._id);
-    // 2. Kiểm tra xem sản phẩm có nằm trong các đơn ?
+    //  Kiểm tra xem sản phẩm có nằm trong các đơn 
     const hasPurchasedItem = await OrderItem.findOne({ order: { $in: deliveredOrderIds }, product: productId });
     if (!hasPurchasedItem)
         throw new Error("Bạn chỉ có thể đánh giá sản phẩm đã mua thành công.");
@@ -129,5 +127,48 @@ exports.deleteReviewByUser = async (reviewId, userId) => {
     await updateProductRating(productId);
     return { message: "Xóa đánh giá thành công." };
 };
-exports.getReviewsForProduct = async (productId) =>
-    Review.find({ product: productId }).populate('user', 'name avatar').sort({ createdAt: -1 });
+
+exports.getReviewsForProduct = async (productId, options = {}) => {
+    //  các tham số phân trang, giá trị mặc định là 5 đánh giá mỗi trang
+    const page = parseInt(options.page, 10) || 1;
+    const limit = parseInt(options.limit, 10) || 5;
+    const skip = (page - 1) * limit;
+
+
+    const [reviews, totalReviews, statsRaw] = await Promise.all([
+
+        Review.find({ product: productId })
+            .populate('user', 'name images')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+
+        Review.countDocuments({ product: productId }),
+
+        Review.aggregate([
+            { $match: { product: new mongoose.Types.ObjectId(productId) } },
+            { $group: { _id: '$rating', count: { $sum: 1 } } }
+        ])
+    ]);
+
+
+    const stats = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+    statsRaw.forEach(item => {
+        if (stats.hasOwnProperty(item._id)) {
+            stats[item._id] = item.count;
+        }
+    });
+
+
+    return {
+        reviews,
+        stats,
+        pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(totalReviews / limit),
+            totalReviews: totalReviews,
+            limit: limit
+        }
+    };
+};

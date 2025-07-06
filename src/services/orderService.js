@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const Product = require('../models/Product');
-const cartService = require('./cartService'); // THÊM DÒNG NÀY
+const cartService = require('./cartService');
 
 const ALLOWED_TRANSITIONS = {
     pending: ['processing', 'cancelled'],
@@ -14,13 +14,12 @@ const ALLOWED_TRANSITIONS = {
 };
 
 
-// === 1. TẠO ĐƠN HÀNG 
 exports.createOrder = async (orderInput) => {
-    const { userId, cartItems, shippingInfo, paymentMethod, notes, clearCart = true } = orderInput; // Thêm cờ clearCart
-    if (!cartItems || cartItems.length === 0) throw new Error('Giỏ hàng không được để trống.');
+    const { userId, items, shippingInfo, paymentMethod, notes, clearCart = true } = orderInput;
+    if (!items || items.length === 0) throw new Error('Giỏ hàng không được để trống.');
 
-    // Bước 1: Lấy thông tin sản phẩm và tính toán giá
-    const productIds = cartItems.map(item => item.productId);
+    // Bước 1: Lấy thông tin sản phẩm và tính toán giá (giữ nguyên)
+    const productIds = items.map(item => item.productId);
     const productsFromDB = await Product.find({ _id: { $in: productIds } }).populate('discount');
     const productMap = new Map(productsFromDB.map(p => [p._id.toString(), p]));
 
@@ -28,10 +27,10 @@ exports.createOrder = async (orderInput) => {
     let totalDiscountAmount = 0;
     const processedItems = [];
 
-    for (const cartItem of cartItems) {
-        const product = productMap.get(cartItem.productId);
-        if (!product) throw new Error(`Sản phẩm ID ${cartItem.productId} không tồn tại.`);
-        if (product.stock < cartItem.quantity) throw new Error(`Sản phẩm "${product.name}" không đủ tồn kho.`);
+    for (const item of items) {
+        const product = productMap.get(item.productId);
+        if (!product) throw new Error(`Sản phẩm ID ${item.productId} không tồn tại.`);
+        if (product.stock < item.quantity) throw new Error(`Sản phẩm "${product.name}" không đủ tồn kho.`);
 
         let finalPricePerItem = product.price;
         let itemDiscount = 0;
@@ -44,32 +43,32 @@ exports.createOrder = async (orderInput) => {
         }
 
         const image = product.images && product.images.length > 0 ? `data:${product.images[0].contentType};base64,${product.images[0].data.toString('base64')}` : null;
+
         processedItems.push({
             product: product._id,
             name: product.name,
             image: image,
             price: finalPricePerItem,
-            quantity: cartItem.quantity,
-            // Thêm option vào order item để lưu trữ
-            option: cartItem.option
+            quantity: item.quantity,
+            option: item.option,
+            variant: item.productVariantId || null,
         });
 
-        calculatedItemsPrice += product.price * cartItem.quantity;
-        totalDiscountAmount += itemDiscount * cartItem.quantity;
+        calculatedItemsPrice += product.price * item.quantity;
+        totalDiscountAmount += itemDiscount * item.quantity;
     }
 
-    // Trừ tồn kho trước để giảm thiểu rủi ro
-    const session = await mongoose.startSession();
-    session.startTransaction();
+
     try {
+        //  Trừ tồn kho 
         const stockUpdatePromises = processedItems.map(item =>
             Product.findByIdAndUpdate(item.product, {
                 $inc: { stock: -item.quantity, sold: +item.quantity }
-            }, { session })
+            })
         );
         await Promise.all(stockUpdatePromises);
 
-        // Tạo Order và OrderItem
+        //bản ghi Order
         const shippingPrice = 30000;
         const totalPrice = (calculatedItemsPrice - totalDiscountAmount) + shippingPrice;
 
@@ -78,34 +77,32 @@ exports.createOrder = async (orderInput) => {
             discountAmount: totalDiscountAmount, totalPrice, shippingInfo,
             paymentInfo: { method: paymentMethod, status: 'pending' }, notes, status: 'pending'
         });
-        const [createdOrder] = await Order.create([order], { session });
+        const createdOrder = await order.save();
 
+        // bản ghi OrderItem
         const orderItemsToCreate = processedItems.map(item => ({ ...item, order: createdOrder._id }));
-        const createdItems = await OrderItem.insertMany(orderItemsToCreate, { session });
+        const createdItems = await OrderItem.insertMany(orderItemsToCreate);
+
 
         createdOrder.items = createdItems.map(item => item._id);
-        await createdOrder.save({ session });
+        await createdOrder.save();
 
-        // SỬA Ở ĐÂY: Xóa giỏ hàng nếu cần
+
         if (clearCart) {
             await cartService.clearCart(userId);
         }
 
-        await session.commitTransaction();
+
         return createdOrder;
 
-    } catch (orderError) {
-        await session.abortTransaction();
-        // Không cần hoàn tác tồn kho vì transaction sẽ tự rollback
-        console.error("Lỗi khi tạo đơn hàng, transaction đã được rollback:", orderError);
-        throw new Error("Đã có lỗi xảy ra trong quá trình tạo đơn hàng, vui lòng thử lại.");
-    } finally {
-        session.endSession();
+    } catch (error) {
+
+        console.error("Lỗi nghiêm trọng khi tạo đơn hàng (không có transaction):", error);
+        throw new Error("Đã có lỗi xảy ra trong quá trình xử lý đơn hàng của bạn.");
     }
 };
 
-
-// === 2. LẤY DANH SÁCH ĐƠN HÀNG (ĐÃ SỬA ĐỂ LÀM VIỆC VỚI ORDERITEM) ===
+// LẤY DANH SÁCH ĐƠN HÀNG 
 exports.getAllOrders = async (options = {}) => {
     const { page = 1, limit = 10, search = '' } = options;
     let query = {};

@@ -87,7 +87,7 @@ router.delete('/discount/:id', discountController.deleteDiscount);
 //  ORDER - Đơn hàng
 // ============================================================
 
-router.post('/add-order', orderController.createOrder);
+router.post('/add-order', verifyToken, orderController.createOrder);
 router.get('/order-all', orderController.getAllOrders);
 router.put('/update-order/:id/status', orderController.updateOrderStatus);
 
@@ -116,11 +116,11 @@ router.delete('/reviews/:id', verifyToken, reviewController.userDeleteReview);
 router.get('/products/:productId/reviews', reviewController.publicGetProductReview);
 
 // new
-router.post('/admin/news', uploadImage, newController.createNews); // Đã xóa verifyToken, verifyAdmin
-router.get('/admin/news', newController.getAllNewsAdmin); // Đã xóa verifyToken, verifyAdmin
-router.get('/admin/news/:id', newController.getNewById); // Đã xóa verifyToken, verifyAdmin
-router.put('/admin/news/:id', uploadImage, newController.updateNews); // Đã xóa verifyToken, verifyAdmin
-router.delete('/admin/news/:id', newController.deleteNews); //
+router.post('/admin/news', uploadImage, newController.createNews);
+router.get('/admin/news', newController.getAllNewsAdmin);
+router.get('/admin/news/:id', newController.getNewById);
+router.put('/admin/news/:id', uploadImage, newController.updateNews);
+router.delete('/admin/news/:id', newController.deleteNews);
 
 // --- Client/Public Routes (Không cần xác thực) ---
 router.get('/news', newController.getAllNews); // Lấy danh sách tin tức (có phân trang)
