@@ -1,4 +1,5 @@
 
+const Product = require('../models/Product');
 const productService = require('../services/productService');
 const multer = require('multer');
 
@@ -235,6 +236,33 @@ exports.getFilterOptions = async (req, res) => {
     } catch (error) {
         console.log("check data options", error);
         res.status(500).json({ message: 'Loi server khi loc', error: error.message });
+
+    }
+};
+exports.getProductsByIds = async (req, res) => {
+    try {
+        const { ids } = req.body; // API này sẽ nhận một mảng 'ids' từ body của request
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: 'Vui lòng cung cấp một danh sách ID sản phẩm.' });
+        }
+
+        // Tìm tất cả các sản phẩm có _id nằm trong danh sách `ids`
+        const products = await Product.find({ '_id': { $in: ids } });
+
+        res.status(200).json(products);
+
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server khi lấy sản phẩm theo ID', error: error.message });
+    }
+};
+exports.getSuggestions = async (req, res) => {
+    try {
+        const query = req.query.q || '';
+        const suggestion = await productService.getProductSuggestion(query);
+        res.status(200).json({ success: true, data: suggestion });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Loi khi lay san pham goi y' });
 
     }
 };

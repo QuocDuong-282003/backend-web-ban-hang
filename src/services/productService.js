@@ -25,12 +25,12 @@ const generateUniqueSlug = async (name, excludeProductId = null) => {
 exports.createProductWithOptions = async (data) => {
     const { name, description, price, stock, category, brand, images, options } = data;
 
-    // 1. Tạo sản phẩm cha với đầy đủ thông tin, bao gồm cả ảnh
+    //  Tạo sản phẩm cha với đầy đủ thông tin, bao gồm cả ảnh
     const uniqueSlug = await generateUniqueSlug(name);
     const product = new Product({ name, slug: uniqueSlug, description, price, stock, category, brand, images, options });
     const savedProduct = await product.save();
 
-    // 2. Tạo các biến thể, KHÔNG có trường images
+    //  Tạo các biến thể
     const stockPerVariant = options.length > 0 ? Math.floor(stock / options.length) : stock;
     const variantsToCreate = [];
 
@@ -54,71 +54,13 @@ exports.createProductWithOptions = async (data) => {
     const savedVariants = await ProductVariant.insertMany(variantsToCreate);
     savedProduct.variants = savedVariants.map(v => v._id);
 
-    // 3. Cập nhật lại tổng tồn kho chính xác và lưu
+    // Cập nhật lại tổng tồn kho c và lưu
     const totalStock = savedVariants.reduce((sum, v) => sum + v.stock, 0);
     savedProduct.stock = totalStock;
     await savedProduct.save();
 
     return savedProduct;
 };
-
-// exports.updateProductWithOptions = async (productId, updateData) => {
-//     const { options, images, ...productFields } = updateData;
-
-//     let productToUpdate = await Product.findById(productId);
-//     if (!productToUpdate) throw new Error('Không tìm thấy sản phẩm để cập nhật');
-
-//     Object.assign(productToUpdate, productFields);
-
-//     const hasNoSlug = !productToUpdate.slug;
-//     const nameChanged = productFields.name && productFields.name !== productToUpdate.name;
-//     if (hasNoSlug || nameChanged) {
-//         productToUpdate.slug = await generateUniqueSlug(productFields.name || productToUpdate.name, productId);
-//     }
-
-//     if (images && images.length > 0) {
-//         productToUpdate.images = images;
-//     }
-
-//     if (options !== undefined) {
-//         await ProductVariant.deleteMany({ product: productId });
-
-//         const slug = productToUpdate.slug;
-//         const stockPerVariant = options.length > 0 ? Math.floor(productToUpdate.stock / options.length) : productToUpdate.stock;
-//         const variantsToCreate = [];
-
-//         if (options.length > 0) {
-//             options.forEach(optionText => {
-//                 variantsToCreate.push({
-//                     product: productId,
-//                     size: optionText,
-//                     price: productToUpdate.price,
-//                     stock: stockPerVariant,
-//                     sku: `${slug.toUpperCase()}-${optionText.replace(/\s+/g, '-')}`,
-//                     images: images
-//                 });
-//             });
-//         } else {
-//             variantsToCreate.push({
-//                 product: productId,
-//                 price: productToUpdate.price,
-//                 stock: productToUpdate.stock,
-//                 sku: `${slug.toUpperCase()}-DEFAULT`,
-//                 images: productToUpdate.images
-//             });
-//         }
-
-//         const savedVariants = await ProductVariant.insertMany(variantsToCreate);
-//         productToUpdate.variants = savedVariants.map(v => v._id);
-//         const totalStock = savedVariants.reduce((sum, v) => sum + v.stock, 0);
-//         productToUpdate.stock = totalStock;
-//         productToUpdate.options = options;
-//     }
-
-//     // Lưu tất cả thay đổi vào DB
-//     const finalUpdatedProduct = await productToUpdate.save();
-//     return finalUpdatedProduct;
-// };
 
 exports.updateProductWithOptions = async (productId, updateData) => {
     const { options, images, ...productFields } = updateData;
@@ -147,7 +89,7 @@ exports.updateProductWithOptions = async (productId, updateData) => {
     }
 
     if (options !== undefined) {
-        // ... (phần code xử lý options của bạn giữ nguyên, nó đã đúng)
+
         await ProductVariant.deleteMany({ product: productId });
         const variantsToCreate = [];
         const slug = productToUpdate.slug;
@@ -196,51 +138,7 @@ exports.updateProductWithOptions = async (productId, updateData) => {
     return result;
 };
 
-// exports.getFilterProducts = async (filters) => {
-//     const { page = 1, limit = 12, sort = 'popular', priceRange, brands, search } = filters;
-//     let query = {};
-//     if (priceRange) {
-//         const [minPrice, maxPrice] = priceRange.split('-').map(Number);
-//         query.price = { $gte: minPrice, $lte: maxPrice };
-//     }
-//     if (brands) {
-//         query.brand = { $in: brands.split(',') };
-//     }
-//     if (search) {
-//         query.name = { $regex: search, $options: 'i' };
-//     }
 
-//     let sortOption = {};
-//     switch (sort) {
-//         case 'price-asc': sortOption.price = 1; break;
-//         case 'price-desc': sortOption.price = -1; break;
-//         default: sortOption = { sold: -1, rating: -1, createdAt: -1 };
-//     }
-
-//     const skip = (parseInt(page) - 1) * parseInt(limit);
-//     const [products, totalItems] = await Promise.all([
-//         Product.find(query)
-//             .populate('discount')
-//             .populate('variants', 'size color stock sku')
-//             .sort(sortOption)
-//             .skip(skip)
-//             .limit(parseInt(limit))
-//             .lean(),
-//         Product.countDocuments(query)
-//     ]);
-
-//     const totalPages = Math.ceil(totalItems / parseInt(limit));
-//     const processedData = processProductsForClient(products);
-//     return {
-//         data: processedData,
-//         pagination: {
-//             currentPage: parseInt(page),
-//             totalPages,
-//             totalItems
-//         }
-//     };
-// };
-// --- THAY THẾ LẠI HÀM "getFilterProducts" TRONG: src/services/productService.js ---
 
 exports.getFilterProducts = async (filters) => {
     const { page = 1, limit = 12, sort = 'popular', priceRange, brands, search } = filters;
@@ -252,16 +150,14 @@ exports.getFilterProducts = async (filters) => {
         query.price = { $gte: minPrice, $lte: maxPrice };
     }
 
-    // --- PHẦN SỬA LỖI LỌC THƯƠNG HIỆU ---
+    //  LỌC THƯƠNG HIỆU 
     if (brands && brands.length > 0) {
-        // brands có thể là một chuỗi 'Nike' hoặc một mảng ['Nike', 'Adidas']
-        // ta cần đảm bảo nó luôn là một mảng trước khi dùng $in
+
         const brandsArray = Array.isArray(brands) ? brands : brands.split(',');
 
-        // Sửa tên trường từ `brands` thành `brand`
+
         query.brand = { $in: brandsArray };
     }
-    // --- KẾT THÚC PHẦN SỬA ---
 
     if (search) {
         query.name = { $regex: search, $options: 'i' };
@@ -338,38 +234,6 @@ const processProductsForClient = (products) => {
 };
 
 
-// exports.createProductWithOptions = async (productData) => {
-//     const { name, description, price, stock, category, brand, images, options } = productData;
-//     const uniqueSlug = await generateUniqueSlug(name);
-//     const product = new Product({
-//         name, slug: uniqueSlug, description, price, stock, category, brand, images, options
-//     });
-//     const savedProduct = await product.save();
-//     const variantsToCreate = [];
-//     if (options && options.length > 0) {
-//         const stockPerVariant = Math.floor(stock / options.length);
-//         options.forEach(optionText => {
-//             variantsToCreate.push({
-//                 product: savedProduct._id,
-//                 size: optionText, price: price,
-//                 stock: stockPerVariant,
-//                 sku: `${uniqueSlug.toUpperCase()}-${optionText.replace(/\s+/g, '-')}`,
-//                 images: savedProduct.images
-//             });
-//         });
-//     } else {
-//         variantsToCreate.push({
-//             product: savedProduct._id, price: price, stock: stock,
-//             sku: `${uniqueSlug.toUpperCase()}-DEFAULT`
-//         });
-//     }
-//     const savedVariants = await ProductVariant.insertMany(variantsToCreate);
-//     savedProduct.variants = savedVariants.map(v => v._id);
-//     const totalStock = savedVariants.reduce((sum, v) => sum + v.stock, 0);
-//     savedProduct.stock = totalStock;
-//     await savedProduct.save();
-//     return savedProduct;
-// };
 
 exports.getAllProducts = async () => {
     const products = await Product.find().populate('category', 'name').populate('discount').populate('variants').lean();
@@ -450,15 +314,14 @@ exports.getProductById = async (id) => {
         const imagesBase64 = product.images && product.images.length > 0 ? product.images.map(img => `data:${img.contentType};base64,${img.data.toString('base64')}`) : [];
         return {
             ...product,
-            variants: cleanVariants, // Trả về mảng biến thể đã được làm sạch
+            variants: cleanVariants,
 
             finalPrice,
             images: imagesBase64
         };
     } catch (error) {
-        // Nếu có lỗi trong quá trình truy vấn DB hoặc xử lý dữ liệu, log nó ra
+
         console.error(`[Service] Lỗi khi xử lý getProductById cho ID ${id}:`, error);
-        // Ném lỗi lên để controller có thể bắt và trả về lỗi 500
         throw error;
     }
 };
@@ -486,4 +349,40 @@ exports.isProductNameDuplicate = async (name, excludeProductId) => {
 
     const product = await Product.findOne(query);
     return product !== null;
+};
+
+
+exports.getProductSuggestion = async (query) => {
+    const limit = 5;
+    let products = [];
+
+    if (!query) {
+        // Nếu không có từ khóa, gợi ý các sản phẩm bán chạy nhất
+        products = await Product.find({ stock: { $gt: 0 } })
+            .sort({ sold: -1 })
+            .limit(limit);
+    } else {
+        // Nếu có từ khóa, tìm các sản phẩm có tên khớp
+        const searchRegex = new RegExp(query, 'i');
+        products = await Product.find({ name: searchRegex, stock: { $gt: 0 } })
+            .sort({ sold: -1 })
+            .limit(limit);
+    }
+
+    // XỬ LÝ DỮ LIỆU TRƯỚC KHI TRẢ VỀ CHO CLIENT
+    const suggestions = products.map(p => {
+        let imageSrc = null;
+        if (p.images && p.images.length > 0 && p.images[0].data) {
+            imageSrc = `data:${p.images[0].contentType};base64,${p.images[0].data.toString('base64')}`;
+        }
+
+        return {
+            _id: p._id,
+            name: p.name,
+            image: imageSrc,
+            finalPrice: p.finalPrice || p.price || 0
+        };
+    });
+
+    return suggestions;
 };

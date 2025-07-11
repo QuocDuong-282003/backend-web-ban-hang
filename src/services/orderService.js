@@ -18,7 +18,7 @@ exports.createOrder = async (orderInput) => {
     const { userId, items, shippingInfo, paymentMethod, notes, clearCart = true } = orderInput;
     if (!items || items.length === 0) throw new Error('Giỏ hàng không được để trống.');
 
-    // Bước 1: Lấy thông tin sản phẩm và tính toán giá (giữ nguyên)
+    //  Lấy thông tin sản phẩm và tính toán giá )
     const productIds = items.map(item => item.productId);
     const productsFromDB = await Product.find({ _id: { $in: productIds } }).populate('discount');
     const productMap = new Map(productsFromDB.map(p => [p._id.toString(), p]));
@@ -113,11 +113,11 @@ exports.getAllOrders = async (options = {}) => {
 
     const [orders, totalItems] = await Promise.all([
         Order.find(query)
-            .populate('user', 'name email') // Lấy thông tin người dùng
+            .populate('user', 'name email')
             .populate({
-                path: 'items', // Tên trường trong Order model
-                model: 'OrderItem', // Chỉ định model để populate
-                select: 'name quantity price image option' // Chỉ lấy các trường cần thiết từ OrderItem
+                path: 'items',
+                model: 'OrderItem',
+                select: 'name quantity price image option'
             })
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
@@ -134,7 +134,7 @@ exports.getAllOrders = async (options = {}) => {
     };
 };
 
-// === 3. CẬP NHẬT TRẠNG THÁI (ĐÃ NÂNG CẤP) ===
+//  CẬP NHẬT TRẠNG THÁI 
 exports.updateOrderStatus = async (orderId, newStatus) => {
 
     const order = await Order.findById(orderId);

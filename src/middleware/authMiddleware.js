@@ -10,22 +10,21 @@ const verifyToken = (req, res, next) => {
     }
 
 
-    //  server đang dùng khóa nào để XÁC THỰC token.
-    console.log('[AUTH MIDDLEWARE] Đang XÁC THỰC token với khóa bí mật:', process.env.JWT_SECRET);
 
 
     if (!process.env.JWT_SECRET) {
         return res.status(500).json({ message: "Lỗi cấu hình: JWT_SECRET không được tìm thấy trên server." });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) {
-            console.error('[AUTH MIDDLEWARE] Lỗi xác thực JWT:', err.message); //  log lỗi chi tiết
-            return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn!' });
-        }
-        req.user = user;
-        next();
-    });
+    jwt.verify(
+        token,
+        process.env.JWT_SECRET, (err, user) => {
+            if (err) {
+                return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn!' });
+            }
+            req.user = user;
+            next();
+        });
 };
 
 const verifyAdmin = (req, res, next) => {

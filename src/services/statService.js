@@ -1,32 +1,7 @@
 const Stat = require('../models/Stat');
 const User = require('../models/User');
 
-// exports.increaseLoginCount = async (type) => {
-//     const today = new Date();
-//     const dateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
-//     const stat = await Stat.findOne({ type, date: dateOnly });
-//     if (stat) {
-//         stat.count += 1;
-//         await stat.save();
-//     } else {
-//         await Stat.create({ type, date: dateOnly, count: 1 });
-//     }
-// };
-// exports.increaseLoginCount = async (type) => {
-//     const today = new Date();
-//     const dateOnly = new Date(Date.UTC(
-//         today.getUTCFullYear(),
-//         today.getUTCMonth(),
-//         today.getUTCDate()
-//     ));
-
-//     await Stat.updateOne(
-//         { type, date: dateOnly },
-//         { $inc: { count: 1 } },
-//         { upsert: true }
-//     );
-// };
 exports.increaseLoginCount = async (type) => {
     console.log(' Ghi nhận login cho:', type);
     try {

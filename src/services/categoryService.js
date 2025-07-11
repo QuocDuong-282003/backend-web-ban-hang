@@ -1,11 +1,6 @@
 const Category = require('../models/Category');
 const slugify = require('slugify'); // để tạo slug từ name
 
-// exports.createCategory = async (data) => {
-//     const slug = slugify(data.name, { lower: true });
-//     const category = await Category.create({ ...data, slug });
-//     return category;
-// };
 exports.createCategory = async (data) => {
     if (!data.name || !data.description) {
         throw new Error('Thiếu tên hoặc mô tả danh mục.');

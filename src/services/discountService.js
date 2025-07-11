@@ -3,7 +3,7 @@ const Product = require('../models/Product');
 exports.createDiscount = async (data) => {
     const existingCode = await Discount.findOne({ code: data.code });
     if (existingCode) {
-        // Ném ra một lỗi rõ ràng để controller có thể bắt
+
         throw new Error('Mã giảm giá đã tồn tại.');
     }
     const discount = await Discount.create({

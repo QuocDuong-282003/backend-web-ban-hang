@@ -58,7 +58,6 @@ const getCartByUserId = async (userId) => {
 exports.getCartByUserId = getCartByUserId;
 
 
-// Export hàm addItemToCart
 exports.addItemToCart = async ({ userId, productId, productVariantId, quantity }) => {
     const product = await Product.findById(productId);
     if (!product) throw new Error('Không tìm thấy sản phẩm.');
@@ -66,7 +65,6 @@ exports.addItemToCart = async ({ userId, productId, productVariantId, quantity }
     let variant = null;
     if (productVariantId) {
         variant = await ProductVariant.findById(productVariantId);
-        // Sửa lại: Check cả variant có tồn tại không
         if (!variant || !variant.product.equals(product._id)) {
             throw new Error('Phân loại sản phẩm không hợp lệ.');
         }
@@ -110,11 +108,9 @@ exports.addItemToCart = async ({ userId, productId, productVariantId, quantity }
 
     await cart.save();
 
-    // Bây giờ lời gọi này là hợp lệ vì getCartByUserId đã được định nghĩa ở trên
     return getCartByUserId(userId);
 };
 
-// --- THAY THẾ HÀM updateItemQuantity TRONG src/services/cartService.js ---
 
 exports.updateItemQuantity = async ({ userId, cartItemId, quantity }) => {
     const cart = await Cart.findOne({ user: userId });
@@ -138,7 +134,6 @@ exports.updateItemQuantity = async ({ userId, cartItemId, quantity }) => {
         throw new Error('Số lượng sản phẩm trong kho không đủ.');
     }
 
-    // Cập nhật số lượng cho item gốc (chưa populate)
     itemToUpdate.quantity = quantity;
 
     // Lưu lại toàn bộ giỏ hàng
@@ -155,7 +150,6 @@ exports.removeItemFromCart = async ({ userId, cartItemId }) => {
         { user: userId },
         { $pull: { items: { _id: cartItemId } } }
     );
-    // Sửa lại để gọi hàm đã được định nghĩa
     return getCartByUserId(userId);
 };
 

@@ -7,6 +7,8 @@ const cors = require('cors');
 const connectDB = require('./src/config/db');
 const web = require('./src/router/web');
 const uploadImageRoute = require('./src/router/uploadImageRoute');
+const payRoute = require('./src/router/payRoute');
+
 const { scheduleCleanup } = require('./src/cron/cleanup');
 
 
@@ -24,6 +26,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true })); // cho form data
 
 app.use('/api', uploadImageRoute);
 app.use('/api', web);
+app.use('/api', payRoute);
 scheduleCleanup();
 
 const PORT = process.env.PORT || 5000;

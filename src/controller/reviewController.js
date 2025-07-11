@@ -62,25 +62,11 @@ exports.userDeleteReview = async (req, res) => {
         res.status(400).json({ message: error.message });
     }
 }
-// 
-// exports.publicGetProductReview = async (req, res) => {
-//     try {
-//         const productId = req.params.productId;
-//         const reviews = await reviewService.getReviewsForProduct(productId);
-//         res.status(200).json(reviews);
-//     } catch (error) {
-//         res.status(500).json({ message: error.message });
-
-//     }
-// }
-
-
-// --- THAY THẾ HÀM publicGetProductReview TRONG: controller/reviewController.js ---
 
 exports.publicGetProductReview = async (req, res) => {
     try {
         const productId = req.params.productId;
-        // Lấy các tham số page, limit từ query string (ví dụ: /reviews?page=2&limit=10)
+
         const options = {
             page: req.query.page,
             limit: req.query.limit || 5 // Mặc định là 5 nếu không có
@@ -88,7 +74,7 @@ exports.publicGetProductReview = async (req, res) => {
         const result = await reviewService.getReviewsForProduct(productId, options);
         console.log('Check data reniew', result)
 
-        res.status(200).json(result); // Trả về object hoàn chỉnh
+        res.status(200).json(result);
     } catch (error) {
         console.error("Lỗi trong publicGetProductReview:", error);
         res.status(500).json({ message: error.message });
