@@ -93,7 +93,13 @@ router.delete('/discount/:id', discountController.deleteDiscount);
 router.post('/add-order', verifyToken, orderController.createOrder);
 router.get('/order-all', orderController.getAllOrders);
 router.put('/update-order/:id/status', orderController.updateOrderStatus);
+router.get('/orders/:id', verifyToken, orderController.getOrderByIdForUser);
+// Dùng cho trang Theo dõi đơn hàng
+router.get('/orders-detail/:id', verifyToken, orderController.getOrderByIdForUser);
 
+// --- ROUTE MỚI 2: Lấy tất cả đơn hàng của người dùng ---
+// Dùng cho trang "Đơn hàng của tôi"
+router.get('/my-orders', verifyToken, orderController.getMyOrders);
 // ============================================================
 //  DASHBOARD - Thống kê tổng quan
 // ============================================================

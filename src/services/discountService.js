@@ -21,7 +21,26 @@ exports.createDiscount = async (data) => {
 }
 //
 exports.getAllDiscount = async () => {
-    return await Discount.find().sort({ createdAt: -1 });
+    // return await Discount.find().sort({ createdAt: -1 });
+    const discounts = await Discount.find().sort({ createdAt: -1 }).lean();
+    const now = new Date();
+    const discountWithStatus = discounts.map(discount => {
+        let status = '';
+        if (!discount.isActive) {
+            status = "Vô hiệu hóa";
+        } else if (now < new Date(discount.startDate)) {
+            status = "Chưa kích hoạt";
+        } else if (now > new Date(discount.endDate)) {
+            status = "Hết hạn";
+        } else {
+            status = "Hoạt động";
+        }
+        return {
+            ...discount,
+            status: status
+        };
+    });
+    return discountWithStatus;
 }
 // 
 exports.getDiscountById = async (discountID) => {

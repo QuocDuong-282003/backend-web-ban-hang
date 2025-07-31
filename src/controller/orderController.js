@@ -1,17 +1,10 @@
 const orderService = require('../services/orderService');
+const emailService = require('../services/emailService');
 
 
 //
 exports.createOrder = async (req, res) => {
-    console.log("=============================================");
-    console.log("BÊN TRONG orderController.createOrder");
-    console.log("--- 1. Kiểm tra req.user (từ authMiddleware) ---");
-    console.log(req.user);
 
-    console.log("--- 2. Kiểm tra req.body (dữ liệu từ frontend) ---");
-    console.log(JSON.stringify(req.body, null, 2)); // Dùng JSON.stringify để xem cấu trúc rõ hơn
-    console.log("=============================================");
-    // ==================================================
     try {
         const userId = req.body.userId || req.user?.id;
         const { items, shippingInfo, paymentMethod, notes } = req.body;
@@ -20,11 +13,18 @@ exports.createOrder = async (req, res) => {
             return res.status(400).json({ message: 'Thieu thong tin de tao don hang' });
 
         }
+        if (!shippingInfo.email && req.user?.email) {
+            shippingInfo.email = req.user.email;
+        }
         const orderInput = {
             userId, items,
             shippingInfo, paymentMethod, notes
         };
         const order = await orderService.createOrder(orderInput);
+
+        if (shippingInfo.email) {
+            emailService.sendOrderConfirmationEmail(order, shippingInfo.email);
+        }
         res.status(201).json({ message: 'Dat hang thanh cong', order });
 
     } catch (error) {
@@ -49,13 +49,42 @@ exports.getAllOrders = async (req, res) => {
 };
 exports.updateOrderStatus = async (req, res) => {
     try {
-        const { status } = req.body;
-        if (!status) {
-            return res.status(400).json({ message: 'Trang thai khong duoc de trong' });
+        const updateData = req.body;
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ message: 'Không có thông tin cập nhật.' });
         }
-        const updateOrder = await orderService.updateOrderStatus(req.params.id, status);
-        res.status(200).json(updateOrder);
+        const updatedOrder = await orderService.updateOrderStatus(req.params.id, updateData);
+        res.status(200).json(updatedOrder);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
-}
+};
+
+exports.getMyOrders = async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Vui lòng đăng nhập để xem đơn hàng.' });
+        }
+        const orders = await orderService.findOrdersByUserId(userId);
+        res.status(200).json({ orders });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+exports.getOrderByIdForUser = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        const userId = req.user?.id; // Lấy userId từ token (nếu có)
+
+        const order = await orderService.findOrderById(orderId, userId);
+
+        if (!order) {
+            return res.status(404).json({ message: 'Không tìm thấy đơn hàng hoặc bạn không có quyền xem.' });
+        }
+        res.status(200).json({ order });
+    } catch (error) {
+        console.error("Lỗi controller khi lấy chi tiết đơn hàng:", error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};

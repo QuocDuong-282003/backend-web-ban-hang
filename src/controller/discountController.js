@@ -1,21 +1,18 @@
 const discountService = require('../services/discountService');
 
 const Discount = require('../models/Discount');
+
 exports.createDiscount = async (req, res) => {
     try {
         const { code, description, discountType, value, startDate,
             endDate, isActive } = req.body;
-        console.log('Check discount controller,', req.body);
 
         if (!code || !description || !discountType || !value || !startDate || !endDate) {
-            return res.status(400).json({ message: 'Vui long dien day du thong tin' })
-
+            return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
         }
         if (!['percent', 'fixed'].includes(discountType)) {
             return res.status(400).json({ message: "Loại giảm giá không hợp lệ. Chỉ chấp nhận 'percent' hoặc 'fixed'." });
         }
-
-        //  Ép kiểu và Validate `value`
         const numericValue = parseFloat(value);
         if (isNaN(numericValue) || numericValue < 0) {
             return res.status(400).json({ message: 'Giá trị (value) phải là một số không âm.' });
@@ -23,20 +20,34 @@ exports.createDiscount = async (req, res) => {
 
         const discountData = {
             code, description, discountType, value: numericValue, startDate, endDate,
-            isActive: isActive !== undefined ? isActive : true // Nếu không có thì mặc định là true
+            isActive: isActive !== undefined ? isActive : true
+        };
+
+        const newDiscountFromDB = await discountService.createDiscount(discountData);
+
+        const discountObject = newDiscountFromDB.toObject();
+
+        // 3. Tính toán trường 'status'
+        const now = new Date();
+        if (!discountObject.isActive) {
+            discountObject.status = 'Vô hiệu hoá';
+        } else if (now > new Date(discountObject.endDate)) {
+            discountObject.status = 'Đã hết hạn';
+        } else if (now < new Date(discountObject.startDate)) {
+            discountObject.status = 'Chưa bắt đầu';
+        } else {
+            discountObject.status = 'Đang hoạt động';
         }
-        const discount = await discountService.createDiscount(discountData);
-        res.status(201).json(discount);
+
+        res.status(201).json(discountObject);
 
     } catch (error) {
-        res.status(500).json({ message: 'Lỗi server khi tạo sản phẩm', error: error.message });
+        res.status(400).json({ message: error.message || 'Lỗi server khi tạo mã giảm giá' });
     }
-}
-//
+};
 exports.getAllDiscountTable = async (req, res) => {
     try {
         const discounts = await discountService.getAllDiscount();
-        console.log("check disucount list", discounts)
         res.json(discounts)
     } catch (error) {
         res.status(500).json({ message: 'Lỗi server lay  sản phẩm', error: error.message });

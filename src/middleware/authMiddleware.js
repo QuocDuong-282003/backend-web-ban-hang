@@ -20,7 +20,7 @@ const verifyToken = (req, res, next) => {
         token,
         process.env.JWT_SECRET, (err, user) => {
             if (err) {
-                return res.status(401).json({ message: 'Token không hợp lệ hoặc đã hết hạn!' });
+                return res.status(401).json({ message: 'Vui lòng đăng nhập lại tài khoản của bạn!' });
             }
             req.user = user;
             next();

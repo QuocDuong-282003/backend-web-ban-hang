@@ -134,29 +134,36 @@ exports.getAllOrders = async (options = {}) => {
     };
 };
 
-//  CẬP NHẬT TRẠNG THÁI 
-exports.updateOrderStatus = async (orderId, newStatus) => {
-
+exports.updateOrderStatus = async (orderId, updateData) => {
     const order = await Order.findById(orderId);
     if (!order) throw new Error('Không tìm thấy đơn hàng.');
 
-    const currentStatus = order.status;
-    if (!ALLOWED_TRANSITIONS[currentStatus]?.includes(newStatus)) {
-        throw new Error(`Hành động không hợp lệ: Không thể chuyển trạng thái từ '${currentStatus}' sang '${newStatus}'.`);
+    const { status, estimatedDeliveryDate, shippingProvider, shippingTrackingCode, notes } = updateData;
+
+    if (status) {
+        const currentStatus = order.status;
+        if (!ALLOWED_TRANSITIONS[currentStatus]?.includes(status)) {
+            throw new Error(`Hành động không hợp lệ: Không thể chuyển từ '${currentStatus}' sang '${status}'.`);
+        }
+        order.status = status;
+        order.statusHistory.push({
+            status: status,
+            notes: notes || `Trạng thái được cập nhật bởi quản trị viên.`
+        });
     }
 
-    order.status = newStatus;
+    if (estimatedDeliveryDate) order.estimatedDeliveryDate = estimatedDeliveryDate;
+    if (shippingProvider) order.shippingProvider = shippingProvider;
+    if (shippingTrackingCode) order.shippingTrackingCode = shippingTrackingCode;
 
-    if (newStatus === 'delivered') {
+    if (status === 'delivered') {
         order.deliveredAt = new Date();
         if (order.paymentInfo.method === 'COD') {
             order.paymentInfo.status = 'completed';
             order.paidAt = new Date();
         }
     }
-
-    if (newStatus === 'cancelled') {
-        // Hoàn lại tồn kho
+    if (status === 'cancelled') {
         const orderItems = await OrderItem.find({ order: order._id });
         const stockUpdatePromises = orderItems.map(item =>
             Product.findByIdAndUpdate(item.product, {
@@ -168,4 +175,39 @@ exports.updateOrderStatus = async (orderId, newStatus) => {
 
     await order.save();
     return order;
+};
+
+// --- HÀM MỚI 1: TÌM ĐƠN HÀNG THEO ID HOẶC MÃ ---
+exports.findOrderById = async (identifier, userId) => {
+    const query = mongoose.Types.ObjectId.isValid(identifier)
+        ? { _id: identifier }
+        : { orderCode: identifier };
+
+    const order = await Order.findOne(query).populate('items').lean();
+
+    if (!order) return null;
+
+    // Nếu có userId (đã đăng nhập), phải là chủ đơn hàng
+    // Nếu không có userId (khách vãng lai có link), vẫn cho xem
+    if (userId && order.user && !order.user.equals(userId)) {
+        return null;
+    }
+
+    return order;
+};
+
+// --- HÀM MỚI 2: LẤY TẤT CẢ ĐƠN HÀNG CỦA USER ---
+exports.findOrdersByUserId = async (userId) => {
+    if (!userId) {
+        throw new Error('Cần có ID người dùng để tìm đơn hàng.');
+    }
+    const orders = await Order.find({ user: userId })
+        .populate({
+            path: 'items',
+            model: 'OrderItem',
+            select: 'name quantity price image option'
+        })
+        .sort({ createdAt: -1 })
+        .lean();
+    return orders;
 };
