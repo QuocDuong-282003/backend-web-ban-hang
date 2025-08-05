@@ -93,9 +93,21 @@ exports.getAllProducts = async () => {
 };
 
 exports.createProductWithOptions = async (data) => {
+    if (data.brand) {
+        data.brand = data.brand.trim().toUpperCase();
+    }
     const { name, description, price, stock, category, brand, images, options } = data;
     const uniqueSlug = await generateUniqueSlug(name);
-    const product = new Product({ name, slug: uniqueSlug, description, price, stock, category, brand, images, options });
+    const product = new Product({
+        name,
+        slug: uniqueSlug,
+        description,
+        price,
+        stock, category,
+        brand,
+        images,
+        options
+    });
     await product.save();
 
     const stockPerVariant = options.length > 0 ? Math.floor(stock / options.length) : stock;
@@ -114,6 +126,9 @@ exports.createProductWithOptions = async (data) => {
 exports.updateProductWithOptions = async (productId, updateData) => {
     const { options, images, ...productFields } = updateData;
     const productToUpdate = await Product.findById(productId);
+    if (productFields.brand) {
+        productFields.brand = productFields.brand.trim().toUpperCase();
+    }
     if (!productToUpdate) throw new Error('Không tìm thấy sản phẩm để cập nhật');
 
     Object.assign(productToUpdate, productFields);
@@ -172,14 +187,20 @@ exports.getProductById = async (id) => {
 };
 
 exports.getFilterProducts = async (filters) => {
-    const { page = 1, limit = 12, sort = 'popular', priceRange, brands, search } = filters;
+
+    const { page = 1, limit = 13, sort = 'popular', priceRange, brands, search } = filters;
     let query = {};
     if (priceRange) {
         const [min, max] = priceRange.split('-').map(Number);
         query.price = { $gte: min, $lte: max };
     }
+    // if (brands && brands.length > 0) {
+    //     query.brand = { $in: Array.isArray(brands) ? brands : brands.split(',') };
+    // }
     if (brands && brands.length > 0) {
-        query.brand = { $in: Array.isArray(brands) ? brands : brands.split(',') };
+
+        const brandRegex = (Array.isArray(brands) ? brands : brands.split(',')).map(b => new RegExp('^' + b + '$', 'i'));
+        query.brand = { $in: brandRegex };
     }
     if (search) {
         query.name = { $regex: search, $options: 'i' };
@@ -197,7 +218,7 @@ exports.getFilterProducts = async (filters) => {
         Product.find(query)
             .populate('category', 'name')
             .populate('discount')
-            .populate('variants') // SỬA LỖI: THÊM DÒNG NÀY
+            .populate('variants')
             .sort(sortOption)
             .skip((page - 1) * limit)
             .limit(limit)
@@ -211,6 +232,33 @@ exports.getFilterProducts = async (filters) => {
     };
 };
 
+
+
+
+//cách 2 .xem thêm
+
+// const [products, totalItems] = await Promise.all([
+//     Product.find(query)
+//         .populate('category', 'name')
+//         .populate('discount')
+//         .populate('variants')
+//         .sort(sortOption)
+//         .skip((page - 1) * limit)
+//         .limit(Number(limit)) // Đảm bảo limit là số
+//         .lean(),
+//     Product.countDocuments(query)
+// ]);
+
+// return {
+//     data: products.map(transformProductForClient),
+//     pagination: {
+//         currentPage: Number(page),
+//         totalPages: Math.ceil(totalItems / limit),
+//         totalItems,
+//         limit: Number(limit)
+//     }
+// };
+// };
 exports.getRelatedProducts = async (productId) => {
     const currentProduct = await Product.findById(productId).select('category');
     if (!currentProduct || !currentProduct.category) return [];
@@ -218,7 +266,7 @@ exports.getRelatedProducts = async (productId) => {
         .limit(4)
         .populate('category', 'name')
         .populate('discount')
-        .populate('variants') // SỬA LỖI: THÊM DÒNG NÀY
+        .populate('variants')
         .lean();
     return products.map(transformProductForClient);
 };
@@ -229,7 +277,7 @@ exports.getNewestProducts = async (limit = 8) => {
         .limit(limit)
         .populate('category', 'name')
         .populate('discount')
-        .populate('variants') // SỬA LỖI: THÊM DÒNG NÀY
+        .populate('variants')
         .lean();
     return products.map(transformProductForClient);
 };
@@ -264,13 +312,13 @@ exports.getPopularProducts = async (limit = 3) => {
     });
 };
 
-exports.getSuggestions = async (query) => {
+exports.getProductSuggestion = async (query) => {
     const limit = 5;
     const searchRegex = new RegExp(query, 'i');
     const products = await Product.find({ name: searchRegex, stock: { $gt: 0 } })
         .sort({ sold: -1 })
         .limit(limit)
-        .populate('variants') // SỬA LỖI: THÊM DÒNG NÀY
+        .populate('variants')
         .lean();
     return products.map(p => {
         const transformed = transformProductForClient(p);
@@ -284,7 +332,11 @@ exports.getSuggestions = async (query) => {
 };
 
 exports.getFilterOptions = async () => {
-    const brands = await Product.distinct('brand');
-    brands.sort();
-    return { brands };
+
+    const rawBrands = await Product.distinct('brand');
+    const cleanedAndUniqueBrands = Array.from(new Set(rawBrands.map(b => b.trim())));
+
+    cleanedAndUniqueBrands.sort();
+
+    return { brands: cleanedAndUniqueBrands };
 };

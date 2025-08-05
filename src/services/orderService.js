@@ -177,7 +177,7 @@ exports.updateOrderStatus = async (orderId, updateData) => {
     return order;
 };
 
-// --- HÀM MỚI 1: TÌM ĐƠN HÀNG THEO ID HOẶC MÃ ---
+// --- TÌM ĐƠN HÀNG THEO ID HOẶC MÃ ---
 exports.findOrderById = async (identifier, userId) => {
     const query = mongoose.Types.ObjectId.isValid(identifier)
         ? { _id: identifier }
@@ -187,8 +187,6 @@ exports.findOrderById = async (identifier, userId) => {
 
     if (!order) return null;
 
-    // Nếu có userId (đã đăng nhập), phải là chủ đơn hàng
-    // Nếu không có userId (khách vãng lai có link), vẫn cho xem
     if (userId && order.user && !order.user.equals(userId)) {
         return null;
     }
@@ -196,7 +194,7 @@ exports.findOrderById = async (identifier, userId) => {
     return order;
 };
 
-// --- HÀM MỚI 2: LẤY TẤT CẢ ĐƠN HÀNG CỦA USER ---
+//---LẤY TẤT CẢ ĐƠN HÀNG CỦA USER ---
 exports.findOrdersByUserId = async (userId) => {
     if (!userId) {
         throw new Error('Cần có ID người dùng để tìm đơn hàng.');

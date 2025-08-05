@@ -15,10 +15,9 @@ const cartController = require('../controller/cartController');
 // === MIDDLEWARE ===
 const uploadImagesMiddleware = require('../../src/config/upLoadImg');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
+const contactController = require('../controller/contactController');
 const uploadImage = require('../../src/config/uploadNewsImageForNew');
-// ============================================================
 //  AUTH - Đăng nhập, đăng ký, quản lý tài khoản người dùng
-// ============================================================
 
 router.post('/login', authController.login);
 router.post('/register', authController.register);
@@ -34,18 +33,14 @@ router.post('/users/change-password', verifyToken, authController.changePassword
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 
-// ============================================================
 //  THỐNG KÊ LƯỢT TRUY CẬP / ĐĂNG NHẬP
-// ============================================================
 
 router.post('/stat', visitStatController.trackLogin);
 router.get('/date', visitStatController.getLoginToday);
 router.get('/month', visitStatController.getLoginThisMonth);
 router.get('/summary', visitStatController.getLoginSummary);
 
-// ============================================================
 //  PRODUCT - Quản lý sản phẩm
-// ============================================================
 
 router.post('/add-product', uploadImagesMiddleware, productController.createProduct);
 router.get('/product-all', productController.getAllProducts);
@@ -66,9 +61,7 @@ router.get('/products/suggestions', productController.getSuggestions);
 router.get('/products/filters-data', productController.getFilterOptions);
 router.get('/products/filter', productController.filterProducts);
 router.post('/products/by-id', productController.getProductsByIds)
-// ============================================================
 //  CATEGORY - Danh mục sản phẩm
-// ============================================================
 
 router.post('/add-category', categoryController.createCategory);
 router.get('/category-all', categoryController.getAllCategories);
@@ -76,9 +69,7 @@ router.get('/category/:id', categoryController.getCategoryById);
 router.put('/category/:id', categoryController.updateCategory);
 router.delete('/category/:id', categoryController.deleteCategory);
 
-// ============================================================
 //  DISCOUNT - Mã giảm giá
-// ============================================================
 
 router.post('/add-discount', discountController.createDiscount);
 router.get('/discount-all', discountController.getAllDiscountTable);
@@ -86,9 +77,7 @@ router.get('/discount/:id', discountController.getDiscountByID);
 router.put('/discount/:id', discountController.updateDiscount);
 router.delete('/discount/:id', discountController.deleteDiscount);
 
-// ============================================================
 //  ORDER - Đơn hàng
-// ============================================================
 
 router.post('/add-order', verifyToken, orderController.createOrder);
 router.get('/order-all', orderController.getAllOrders);
@@ -97,20 +86,15 @@ router.get('/orders/:id', verifyToken, orderController.getOrderByIdForUser);
 // Dùng cho trang Theo dõi đơn hàng
 router.get('/orders-detail/:id', verifyToken, orderController.getOrderByIdForUser);
 
-// --- ROUTE MỚI 2: Lấy tất cả đơn hàng của người dùng ---
 // Dùng cho trang "Đơn hàng của tôi"
 router.get('/my-orders', verifyToken, orderController.getMyOrders);
-// ============================================================
 //  DASHBOARD - Thống kê tổng quan
-// ============================================================
 
 router.get('/stats/overview', dashboardController.getOverviewStats);
 router.get('/stats/sales', dashboardController.getSalesStats);
 router.get('/stats/order-status', dashboardController.getOrderStatusStats);
 
-// ============================================================
 //  REVIEW - Đánh giá sản phẩm
-// ============================================================
 
 // Admin
 router.get('/admin/reviews', verifyToken, verifyAdmin, reviewController.adminGetAllReviews);
@@ -140,5 +124,10 @@ router.get('/news/:slug', newController.getNewsBySlug); // Lấy chi tiết mộ
 router.get('/cart-all', verifyToken, cartController.getCart);
 router.post('/add-cart', verifyToken, cartController.addToCart);
 router.put('/update-cart/:id', verifyToken, cartController.updateCartItem);
-router.delete('/delete-cart/:id', verifyToken, cartController.removeCartItem)
+router.delete('/delete-cart/:id', verifyToken, cartController.removeCartItem);
+
+// contact
+router.post('/contact', contactController.submitContactForm);
+router.delete('/delete-contact/:id', contactController.deleteContact);
+router.get('/contact-all', contactController.getAllContact);
 module.exports = router;

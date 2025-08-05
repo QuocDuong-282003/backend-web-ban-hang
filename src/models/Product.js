@@ -9,7 +9,8 @@ const productSchema = new mongoose.Schema({
     brand: {
         type: String,
         required: [true, 'Thương hiệu là bắt buộc'],
-        trim: true
+        trim: true,
+        uppercase: true
     },
     stock: Number,
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: false },
@@ -23,14 +24,14 @@ const productSchema = new mongoose.Schema({
         default: true
     },
     images: [{
-        data: Buffer,       // Dữ liệu ảnh thô
-        contentType: String // Kiểu file, ví dụ: 'image/jpeg'
+        data: Buffer,
+        contentType: String
     }],
     options: [{ type: String }],
     sold: { type: Number, default: 0 },
     rating: {
         type: Number,
-        default: 0 // Rating trung bình, sẽ được tính toán lại mỗi khi có review mới
+        default: 0
     },
     isFlashSale: { type: Boolean, default: false },
     numReviews: {

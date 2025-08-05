@@ -46,7 +46,6 @@ exports.createProduct = async (req, res) => {
         res.status(201).json({ message: 'Tạo sản phẩm thành công!', data: newProduct });
 
     } catch (error) {
-        console.error('[Controller] Lỗi khi tạo sản phẩm:', error);
         res.status(500).json({ message: error.message || 'Lỗi server khi tạo sản phẩm.' });
     }
 };
@@ -99,18 +98,15 @@ exports.updateProduct = async (req, res) => {
         const productId = req.params.id;
         const updateData = { ...req.body };
 
-        console.log('[Controller] Dữ liệu nhận được từ body:', req.body);
-        console.log('[Controller] Files nhận được từ multer:', req.files); // Kiểm tra xem có file không
-
         if (updateData.price) updateData.price = Number(updateData.price);
         if (updateData.stock) updateData.stock = Number(updateData.stock);
         if (updateData.sold) updateData.sold = Number(updateData.sold);
         if (updateData.options) updateData.options = JSON.parse(updateData.options);
 
-        // Xử lý ảnh MỘT CÁCH CẨN THẬN
+        // Xử lý ảnh 
         if (req.files && Object.keys(req.files).length > 0) {
             const newImages = [];
-            // Giả sử middleware của bạn đặt tên file là 'images'
+
             if (req.files.images) {
                 const imageFiles = Array.isArray(req.files.images) ? req.files.images : [req.files.images];
                 imageFiles.forEach(file => {
@@ -120,7 +116,6 @@ exports.updateProduct = async (req, res) => {
 
             if (newImages.length > 0) {
                 updateData.images = newImages;
-                console.log(`[Controller] Đã chuẩn bị ${newImages.length} ảnh để cập nhật.`);
             }
         }
 
@@ -131,7 +126,6 @@ exports.updateProduct = async (req, res) => {
         }
         res.status(200).json({ message: 'Cập nhật sản phẩm thành công!', data: updatedProduct });
     } catch (error) {
-        console.error('[Controller] Lỗi khi cập nhật sản phẩm:', error);
         res.status(500).json({ message: 'Lỗi server khi cập nhật sản phẩm', error: error.message });
     }
 };
@@ -141,7 +135,6 @@ exports.getAllProducts = async (req, res) => {
         const products = await productService.getAllProducts();
         res.status(200).json({ message: 'Lấy danh sách sản phẩm thành công', data: products });
     } catch (error) {
-        console.error('[Controller] Lỗi khi lấy tất cả sản phẩm:', error);
         res.status(500).json({ message: 'Lỗi server khi lấy danh sách sản phẩm' });
     }
 };
@@ -220,10 +213,10 @@ exports.getPopularProducts = async (req, res) => {
 //
 exports.filterProducts = async (req, res) => {
     try {
+
         const result = await productService.getFilterProducts(req.query);
         res.status(200).json(result);
     } catch (error) {
-        console.log("check san pham", error);
         res.status(500).json({ message: 'Loi server khi loc san pham', error: error.message });
 
     }
@@ -234,7 +227,6 @@ exports.getFilterOptions = async (req, res) => {
         const options = await productService.getFilterOptions();
         res.status(200).json(options);
     } catch (error) {
-        console.log("check data options", error);
         res.status(500).json({ message: 'Loi server khi loc', error: error.message });
 
     }
