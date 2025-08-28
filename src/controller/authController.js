@@ -1,54 +1,11 @@
 const auhtService = require('../services/auhtService');
 const jwt = require('jsonwebtoken');
-// exports.login = async (req, res) => {
-//     const { email, password } = req.body;
-//     try {
-//         const user = await auhtService.loginUser(email, password);
-//         res.json({
-//             user: {
-//                 id: user._id,
-//                 email: user.email,
-//                 name: user.name,
-//                 role: user.role // role được gửi về FE
-//             }
-//         });
-//     } catch (err) {
-//         res.status(401).json({ message: err.message });
-//     }
-// };
-
-
-//const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key'; // nên dùng biến môi trường
-
-// exports.login = async (req, res) => {
-//     const { email, password } = req.body;
-//     try {
-//         const user = await auhtService.loginUser(email, password);
-
-//         // 🔐 Tạo JWT token
-//         const token = jwt.sign(
-//             {
-//                 id: user._id,
-//                 role: user.role
-//             },
-//             process.env.JWT_SECRET,
-//             { expiresIn: '7d' }
-//         );
-
-//         // Trả về cả token + user
-//         res.json({
-//             token,
-//             user: {
-//                 id: user._id,
-//                 email: user.email,
-//                 name: user.name,
-//                 role: user.role
-//             }
-//         });
-//     } catch (err) {
-//         res.status(401).json({ message: err.message });
-//     }
-// };
+const multer = require('multer');
+const path = require('path');
+const User = require('../models/User');
+const streamifier = require('streamifier');
+const cloudinary = require('../utils/cloudinary');
+const upload = require('../middleware/uploadAvatar');
 exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -73,11 +30,75 @@ exports.login = async (req, res) => {
         res.status(401).json({ message: err.message });
     }
 };
-
-exports.register = async (req, res) => {
-    const { email, password, name, role } = req.body;
+///  AVATAR
+exports.uploadAvatar = async (req, res) => {
     try {
-        const user = await auhtService.registerUser(email, password, name, role);
+        if (!req.file) return res.status(400).json({ message: 'Chưa chọn file ảnh.' });
+        //upload to cloudinary
+        const streamUpload = (buffer) => {
+            return new Promise((resolve, reject) => {
+                const stream = cloudinary.uploader.upload_stream(
+                    { folder: 'avatars' },
+                    (error, result) => {
+                        if (result) resolve(result);
+                        else reject(error);
+
+                    }
+                );
+                streamifier.createReadStream(buffer).pipe(stream);
+
+            });
+        };
+        const result = await streamUpload(req.file.buffer);
+
+        //save URL to user
+        const user = await User.findByIdAndUpdate(req.user.id, {
+            avatar: result.secure_url
+        },
+            { new: true }).select('-password');
+        res.status(200).json({ message: 'Upload avatar thành công .', user });
+    } catch (error) {
+        res.status(500).json({ message: 'Lỗi server khi uppload avatar', error: error.message });
+
+    }
+}
+// exports.register = async (req, res) => {
+//     const { email, password, name, role } = req.body;
+//     try {
+//         const user = await auhtService.registerUser(email, password, name, role);
+//         res.status(201).json({ user });
+//     } catch (err) {
+//         res.status(400).json({ message: err.message });
+//     }
+// };
+exports.register = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+        // Kiểm tra trường bắt buộc
+        if (!name || !email || !password) {
+            return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin.' });
+        }
+
+        let avatarUrl = '';
+        if (req.file) {
+            // Upload lên Cloudinary
+            const streamUpload = (buffer) => {
+                return new Promise((resolve, reject) => {
+                    let stream = cloudinary.uploader.upload_stream(
+                        { folder: 'avatars' },
+                        (error, result) => {
+                            if (result) resolve(result);
+                            else reject(error);
+                        }
+                    );
+                    streamifier.createReadStream(buffer).pipe(stream);
+                });
+            };
+            const result = await streamUpload(req.file.buffer);
+            avatarUrl = result.secure_url;
+        }
+
+        const user = await auhtService.registerUser(email, password, name, 'user', avatarUrl);
         res.status(201).json({ user });
     } catch (err) {
         res.status(400).json({ message: err.message });

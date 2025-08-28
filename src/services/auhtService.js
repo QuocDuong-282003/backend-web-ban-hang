@@ -4,7 +4,9 @@ const statService = require('./statService');
 exports.loginUser = async (email, password) => {
     const user = await User.findOne({ email });
     if (!user) throw new Error('Tài khoản không tồn tại');
-
+    if (user.status !== 'active') {
+        throw new Error('Tài khoản đã bị khóa. Vui lòng tạo lại mật khẩu hoặc tài khoản !')
+    }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new Error('Mật khẩu không đúng');
     // Ghi nhận thống kê login
@@ -14,12 +16,12 @@ exports.loginUser = async (email, password) => {
 };
 
 
-exports.registerUser = async (email, password, name, role = 'user') => {
+exports.registerUser = async (email, password, name, role = 'user', avatarUrl = '') => {
     const exist = await User.findOne({ email });
     if (exist) throw new Error('Email đã tồn tại');
 
     const hash = await bcrypt.hash(password, 10);
-    const user = new User({ email, password: hash, name, role });
+    const user = new User({ email, password: hash, name, role, avatar: avatarUrl });
     await user.save();
     await statService.increaseLoginCount(role);
     const { password: _, ...userData } = user._doc;
@@ -64,6 +66,7 @@ exports.updateUserProfile = async (userId, dataToUpdate) => {
     if (dataToUpdate.name) user.name = dataToUpdate.name;
     if (dataToUpdate.address) user.address = dataToUpdate.address;
     if (dataToUpdate.phone) user.phone = dataToUpdate.phone;
+    if (dataToUpdate.avatar) user.avatar = dataToUpdate.avatar;
 
     await user.save();
 

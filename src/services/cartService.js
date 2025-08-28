@@ -4,7 +4,7 @@ const Product = require('../models/Product');
 const ProductVariant = require('../models/productVariant');
 
 const formatCartResponse = async (cartDocument) => {
-    if (!cartDocument || !cartDocument.items || !cartDocument.items.length === 0) {
+    if (!cartDocument || !cartDocument.items || cartDocument.items.length === 0) {
         return { items: [], cartTotal: 0, totalItems: 0 };
     }
     //   lấy thông tin chi tiết
@@ -20,9 +20,9 @@ const formatCartResponse = async (cartDocument) => {
 
         const isVariant = !!item.variant;
 
-        const name = item.product.name;
-        const price = isVariant ? item.variant.price : item.product.price;
-        const stock = isVariant ? item.variant.stock : item.product.stock;
+        //const name = item.product.name;
+        const price = isVariant && item.variant ? item.variant.price : item.product.price;
+        const stock = isVariant && item.variant ? item.variant.stock : item.product.stock;
 
         const image = (item.product.images && item.product.images.length > 0)
             ? `data:${item.product.images[0].contentType};base64,${item.product.images[0].data.toString('base64')}`
@@ -59,6 +59,10 @@ exports.getCartByUserId = getCartByUserId;
 
 
 exports.addItemToCart = async ({ userId, productId, productVariantId, quantity }) => {
+    // check quantity
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error('Số lượng phải lớn hơn 0.');
+    }
     const product = await Product.findById(productId);
     if (!product) throw new Error('Không tìm thấy sản phẩm.');
 
@@ -108,11 +112,15 @@ exports.addItemToCart = async ({ userId, productId, productVariantId, quantity }
 
     await cart.save();
 
-    return getCartByUserId(userId);
+    return await getCartByUserId(userId);
 };
 
 
 exports.updateItemQuantity = async ({ userId, cartItemId, quantity }) => {
+    // check quantity
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw new Error('Số lượng phải lớn hơn  0.');
+    }
     const cart = await Cart.findOne({ user: userId });
     if (!cart) throw new Error('Không tìm thấy giỏ hàng.');
 

@@ -35,3 +35,16 @@ exports.getAllContact = async (req, res) => {
         res.status(500).json({ message: "Lỗi khi lấy danh sách " })
     }
 }
+exports.updateStatusController = async (req, res) => {
+
+    try {
+        const contactId = req.params.id;
+        const newStatus = req.body.status;
+        const updateContact = await contactService.updateStatusContact(contactId, newStatus);
+        console.log('check update', updateContact)
+        res.status(200).json({ success: true, message: 'Cập nhật thành công', data: updateContact });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+
+    }
+}

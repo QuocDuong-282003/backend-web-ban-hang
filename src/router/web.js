@@ -17,10 +17,14 @@ const uploadImagesMiddleware = require('../../src/config/upLoadImg');
 const { verifyToken, verifyAdmin } = require('../middleware/authMiddleware');
 const contactController = require('../controller/contactController');
 const uploadImage = require('../../src/config/uploadNewsImageForNew');
+const uploadAvatar = require('../middleware/uploadAvatar');
+
+// avatar
+router.post('/upload-avatar', verifyToken, uploadAvatar, authController.uploadAvatar);
 //  AUTH - Đăng nhập, đăng ký, quản lý tài khoản người dùng
 
 router.post('/login', authController.login);
-router.post('/register', authController.register);
+router.post('/register', uploadAvatar, authController.register);
 router.get('/users', authController.getAllUsersTable);
 router.delete('/users/:id', authController.deleteUserById);
 router.get('/profile', verifyToken, authController.getProfile);
@@ -83,6 +87,8 @@ router.post('/add-order', verifyToken, orderController.createOrder);
 router.get('/order-all', orderController.getAllOrders);
 router.put('/update-order/:id/status', orderController.updateOrderStatus);
 router.get('/orders/:id', verifyToken, orderController.getOrderByIdForUser);
+//cancel order
+router.put('/orders/:id/cancel-by-user', verifyToken, orderController.cancelOrderByUser);
 // Dùng cho trang Theo dõi đơn hàng
 router.get('/orders-detail/:id', verifyToken, orderController.getOrderByIdForUser);
 
@@ -130,4 +136,5 @@ router.delete('/delete-cart/:id', verifyToken, cartController.removeCartItem);
 router.post('/contact', contactController.submitContactForm);
 router.delete('/delete-contact/:id', contactController.deleteContact);
 router.get('/contact-all', contactController.getAllContact);
+router.put('/update-status/:id/status', contactController.updateStatusController);
 module.exports = router;

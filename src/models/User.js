@@ -8,6 +8,8 @@ const userSchema = new mongoose.Schema({
     phone: String,
     address: String,
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    status: { type: String, enum: ['active', 'banned', 'inactive'], default: 'active' }, // Thêm dòng này
+    avatar: { type: String },
     createdAt: { type: Date, default: Date.now }
 });
 

@@ -88,3 +88,18 @@ exports.getOrderByIdForUser = async (req, res) => {
         res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
 };
+// use cancel order
+exports.cancelOrderByUser = async (req, res) => {
+    try {
+        const orderId = req.params.id;
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({ message: 'Vui lòng đăng nhập !' });
+        }
+        const updateOrder = await orderService.cancelOderByUser(orderId, userId);
+        res.status(200).json({ message: 'Hủy đơn hàng thành công. ', order: updateOrder });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+
+    }
+}

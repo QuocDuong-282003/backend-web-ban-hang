@@ -1,8 +1,7 @@
 const path = require('path');
-const fs = require('fs'); // <--- Thêm import fs
+const fs = require('fs');
 const multer = require('multer');
 
-// NÂNG CẤP: Xác định thư mục upload và đảm bảo nó tồn tại
 const uploadDir = 'uploads/';
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -10,7 +9,7 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, uploadDir); // Sử dụng biến đã định nghĩa
+        cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -31,10 +30,9 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 1024 * 1024 * 5 }, // 5MB
-    fileFilter: fileFilter // Áp dụng bộ lọc file
+    limits: { fileSize: 1024 * 1024 * 5 },
+    fileFilter: fileFilter
 });
 
 
-// Xuất ra một middleware function
 module.exports = upload.single('image');

@@ -19,6 +19,26 @@ exports.deleteContact = async (id) => {
     }
     return true;
 }
-exports.getAllContact = async () => {
-    return await Contact.find().sort({ createdAt: -1 });
+// exports.getAllContact = async () => {
+//     return await Contact.find().sort({ createdAt: -1 });
+// }
+exports.getAllContact = async (filters = {}) => {
+    const queryCondition = {};
+    if (filters.status && filters.status !== 'all') {
+        queryCondition.status = filters.status;
+    }
+    const contacts = await Contact.find(queryCondition).sort({ createdAt: -1 });
+    return contacts;
+}
+exports.updateStatusContact = async (contactId, newStatus) => {
+    if (newStatus !== "replied") {
+        throw new Error('Hành động không hợp lệ.');
+    }
+    const contact = await Contact.findById(contactId);
+    if (!contact) {
+        throw new Error('Không tìm thất liên hệ !');
+    }
+    contact.status = newStatus;
+    const updateContact = await contact.save();
+    return updateContact;
 }

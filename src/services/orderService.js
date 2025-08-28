@@ -195,17 +195,54 @@ exports.findOrderById = async (identifier, userId) => {
 };
 
 //---LẤY TẤT CẢ ĐƠN HÀNG CỦA USER ---
+
+
 exports.findOrdersByUserId = async (userId) => {
     if (!userId) {
         throw new Error('Cần có ID người dùng để tìm đơn hàng.');
     }
+
     const orders = await Order.find({ user: userId })
         .populate({
             path: 'items',
             model: 'OrderItem',
-            select: 'name quantity price image option'
+            select: 'name quantity price image option variant',
+
+            populate: {
+                path: 'product',
+                model: 'Product',
+
+                select: 'name slug images'
+            }
         })
         .sort({ createdAt: -1 })
         .lean();
     return orders;
 };
+// user cancel order
+exports.cancelOderByUser = async (orderId, userId) => {
+    const order = await Order.findById(orderId);
+    if (!order) {
+        throw new Error('Không tìm thấy đơn hàng !');
+    }
+    if (order.user.toString() !== userId.toString()) {
+        throw new Error('Bạn không thể hủy đơn hàng này !');
+    }
+    if (order.status !== 'pending') {
+        throw new Error(`Không thể hủy đơn hàng ở trạng thái  "${order.status}". Đơn hàng đã được xác nhận và giao cho đơn vị vận chuyển !`);
+    }
+    order.status = 'cancelled';
+    order.statusHistory.push({
+        status: 'cancelled',
+        notes: 'Đơn hàng đã được hủy bởi khách hàng !'
+    });
+    const orderItems = await OrderItem.find({ order: order._id });
+    if (orderItems.length > 0) {
+        const stockUpdatePromises = orderItems.map(item => Product.findByIdAndUpdate(item.product, {
+            $inc: { stock: +item.quantity, sold: -item.quantity }
+        }));
+        await Promise.all(stockUpdatePromises);
+    }
+    await order.save();
+    return order;
+}

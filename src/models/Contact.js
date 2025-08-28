@@ -10,9 +10,10 @@ const ContactSchema = new mongoose.Schema({
         type: String,
         require: true
     },
+    //startDate: { type: Date, required: true },
     status: {
         type: String,
-        enum: ['new', 'read', 'replied'],
+        enum: ['new', 'replied'],
         default: 'new'
     }
 }, { timestamps: true });
