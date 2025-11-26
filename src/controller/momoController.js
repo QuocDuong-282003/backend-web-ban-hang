@@ -33,24 +33,20 @@ class momoController {
      * [POST] /api/payments/momo-aio-ipn
      */
     static handleAioIpn(req, res) {
-        console.log("=============== IPN từ MoMo AIO ================");
-        console.log(req.body);
-
         // Gọi service để xác thực chữ ký (tái sử dụng hoặc viết hàm riêng)
         const verification = MomoService.verifyIpn(req.body);
 
         if (verification.isValid) {
-            console.log("Xác thực IPN MoMo AIO thành công!");
             const { orderId, message, resultCode } = verification.data;
 
             if (resultCode === 0) {
-                console.log(`Giao dịch AIO THÀNH CÔNG cho đơn hàng ${orderId}`);
                 // TODO: Cập nhật trạng thái đơn hàng trong DB
+                // Log success for payment tracking
             } else {
-                console.log(`Giao dịch AIO THẤT BẠI cho đơn hàng ${orderId}. Lý do: ${message}`);
+                console.error(`[MoMo IPN] Giao dịch thất bại cho đơn hàng ${orderId}. Lý do: ${message}`);
             }
         } else {
-            console.error("Xác thực IPN MoMo AIO thất bại!");
+            console.error("[MoMo IPN] Xác thực IPN thất bại - có thể là request giả mạo!");
         }
 
         // Luôn phải trả về status 204 cho MoMo

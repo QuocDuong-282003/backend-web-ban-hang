@@ -59,12 +59,29 @@ exports.createOrder = async (orderInput) => {
     }
 
 
+    // Sử dụng transaction nếu MongoDB hỗ trợ (cần replica set)
+    let session = null;
+    let useTransaction = false;
+    
+    try {
+        session = await mongoose.startSession();
+        session.startTransaction();
+        useTransaction = true;
+    } catch (transactionError) {
+        // Nếu không thể tạo session (MongoDB không phải replica set), tiếp tục không dùng transaction
+        console.warn('MongoDB transaction không khả dụng. Đảm bảo MongoDB là replica set để sử dụng transaction.');
+        useTransaction = false;
+    }
+
     try {
         //  Trừ tồn kho 
+        const updateOptions = useTransaction ? { session } : {};
         const stockUpdatePromises = processedItems.map(item =>
-            Product.findByIdAndUpdate(item.product, {
-                $inc: { stock: -item.quantity, sold: +item.quantity }
-            })
+            Product.findByIdAndUpdate(
+                item.product,
+                { $inc: { stock: -item.quantity, sold: +item.quantity } },
+                updateOptions
+            )
         );
         await Promise.all(stockUpdatePromises);
 
@@ -77,28 +94,47 @@ exports.createOrder = async (orderInput) => {
             discountAmount: totalDiscountAmount, totalPrice, shippingInfo,
             paymentInfo: { method: paymentMethod, status: 'pending' }, notes, status: 'pending'
         });
-        const createdOrder = await order.save();
+        const saveOptions = useTransaction ? { session } : {};
+        const createdOrder = await order.save(saveOptions);
 
         // bản ghi OrderItem
         const orderItemsToCreate = processedItems.map(item => ({ ...item, order: createdOrder._id }));
-        const createdItems = await OrderItem.insertMany(orderItemsToCreate);
-
+        const insertOptions = useTransaction ? { session } : {};
+        const createdItems = await OrderItem.insertMany(orderItemsToCreate, insertOptions);
 
         createdOrder.items = createdItems.map(item => item._id);
-        await createdOrder.save();
-
+        await createdOrder.save(saveOptions);
 
         if (clearCart) {
             await cartService.clearCart(userId);
         }
 
-
+        if (useTransaction && session) {
+            await session.commitTransaction();
+        }
         return createdOrder;
 
     } catch (error) {
-
-        console.error("Lỗi nghiêm trọng khi tạo đơn hàng (không có transaction):", error);
-        throw new Error("Đã có lỗi xảy ra trong quá trình xử lý đơn hàng của bạn.");
+        if (useTransaction && session) {
+            await session.abortTransaction();
+        }
+        // Rollback: Hoàn trả tồn kho nếu có lỗi
+        try {
+            const rollbackPromises = processedItems.map(item =>
+                Product.findByIdAndUpdate(item.product, {
+                    $inc: { stock: +item.quantity, sold: -item.quantity }
+                })
+            );
+            await Promise.all(rollbackPromises);
+        } catch (rollbackError) {
+            // Log rollback error nhưng không throw để không che giấu lỗi gốc
+            console.error("Lỗi khi rollback tồn kho:", rollbackError);
+        }
+        throw new Error(`Đã có lỗi xảy ra trong quá trình xử lý đơn hàng: ${error.message}`);
+    } finally {
+        if (session) {
+            session.endSession();
+        }
     }
 };
 
@@ -179,7 +215,7 @@ exports.updateOrderStatus = async (orderId, updateData) => {
 
 // --- TÌM ĐƠN HÀNG THEO ID HOẶC MÃ ---
 exports.findOrderById = async (identifier, userId) => {
-    const query = mongoose.Types.ObjectId.isValid(identifier)
+    const query = mongoose.isValidObjectId(identifier)
         ? { _id: identifier }
         : { orderCode: identifier };
 

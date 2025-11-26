@@ -2,7 +2,6 @@ const newsService = require('../services/newsService');
 exports.createNews = async (req, res) => {
     try {
         const article = await newsService.createNews(req.body, req.file);
-        console.log('check data new', article);
         res.status(201).json({ message: 'Tao bai viet thanh cong', data: article });
     } catch (error) {
         res.status(400).json({ message: 'Tao bai viet that bai', error: error.message });

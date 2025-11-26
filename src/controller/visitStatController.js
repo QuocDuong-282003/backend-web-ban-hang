@@ -3,7 +3,6 @@ const statService = require('../services/statService');
 exports.trackLogin = async (req, res) => {
     const { type } = req.body;
     if (!['user', 'admin'].includes(type)) return res.status(400).json({ message: 'Loại không hợp lệ' });
-    console.log(type)
     await statService.increaseLoginCount(type);
     res.json({ message: 'Đã ghi nhận' });
 };

@@ -90,7 +90,12 @@ exports.exportReviewToExcel = async (reviewIds) => {
 // fun for user
 exports.createReviewByUser = async (userId, productId, rating, comment) => {
     // Tìm tất cả orderId đã giao của user
-    const deliveredOrders = await Order.find({ user: userId, status: 'delivered' }).select('_id');
+    const deliveredOrders = await Order.find(
+        {
+            user: userId,
+            status: 'delivered'
+        }
+    ).select('_id');
     if (deliveredOrders.length === 0)
         throw new Error('Bạn chưa có đơn hàng nào giao thành công !');
 
@@ -104,7 +109,12 @@ exports.createReviewByUser = async (userId, productId, rating, comment) => {
     const review = new Review({ user: userId, product: productId, rating, comment });
     await review.save();
     await updateProductRating(productId);
-    return review;
+    const populatedReview = await Review.findById(review._id)
+        .populate('user', 'name avatar')
+        .lean();
+
+    return populatedReview;
+    //return review;
 }
 exports.updateReviewByUser = async (reviewId, userId, rating, comment) => {
     const review = await Review.findById(reviewId);
@@ -115,7 +125,13 @@ exports.updateReviewByUser = async (reviewId, userId, rating, comment) => {
     review.comment = comment;
     await review.save();
     await updateProductRating(review.product);
-    return review;
+    // return review;
+    const populatedReview = await Review.findById(review._id)
+        .populate('user', 'name avatar')
+        .lean();
+
+    return populatedReview;
+
 };
 exports.deleteReviewByUser = async (reviewId, userId) => {
     const review = await Review.findById(reviewId);
@@ -138,7 +154,7 @@ exports.getReviewsForProduct = async (productId, options = {}) => {
     const [reviews, totalReviews, statsRaw] = await Promise.all([
 
         Review.find({ product: productId })
-            .populate('user', 'name images')
+            .populate('user', 'name avatar images')
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)

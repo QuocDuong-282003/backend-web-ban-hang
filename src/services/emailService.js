@@ -3,16 +3,31 @@
 const nodemailer = require('nodemailer');
 const hbs = require('nodemailer-express-handlebars');
 const path = require('path');
-const transport = require('nodemailer-sendgrid-transport');
 
-// Cấu hình transporter với SendGrid
-const transporter = nodemailer.createTransport(
-    transport({
+// Tạo transporter cho email (ưu tiên SendGrid, fallback Gmail)
+const getTransporter = () => {
+    // Nếu có SENDGRID_API_KEY thì dùng SendGrid
+    if (process.env.SENDGRID_API_KEY) {
+        const transport = require('nodemailer-sendgrid-transport');
+        return nodemailer.createTransport(
+            transport({
+                auth: {
+                    api_key: process.env.SENDGRID_API_KEY,
+                },
+            })
+        );
+    }
+    // Nếu không thì dùng Gmail
+    return nodemailer.createTransport({
+        service: 'gmail',
         auth: {
-            api_key: process.env.SENDGRID_API_KEY,
-        },
-    })
-);
+            user: process.env.FROM_EMAIL,
+            pass: process.env.EMAIL_PASSWORD
+        }
+    });
+};
+
+const transporter = getTransporter();
 
 // Cấu hình Handlebars để dùng template HTML
 const handlebarOptions = {
@@ -60,9 +75,7 @@ exports.sendOrderConfirmationEmail = async (order, customerEmail) => {
             },
         };
 
-        console.log("Đang chuẩn bị gửi mail với context:", mailOptions.context);
         await transporter.sendMail(mailOptions);
-        console.log(`ĐÃ GỬI THÀNH CÔNG email xác nhận cho đơn hàng ${detailedOrder.orderCode} tới ${customerEmail}`);
 
     } catch (error) {
         console.error(`!!! LỖI KHI GỬI EMAIL cho đơn hàng ${order.orderCode} !!!`);

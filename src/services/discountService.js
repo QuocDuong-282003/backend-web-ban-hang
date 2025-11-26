@@ -16,7 +16,6 @@ exports.createDiscount = async (data) => {
         isActive: data.isActive,
 
     })
-    console.log('Sản phẩm thêm thành công');
     return discount;
 }
 //

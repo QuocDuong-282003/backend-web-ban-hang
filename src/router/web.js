@@ -23,8 +23,38 @@ const uploadAvatar = require('../middleware/uploadAvatar');
 router.post('/upload-avatar', verifyToken, uploadAvatar, authController.uploadAvatar);
 //  AUTH - Đăng nhập, đăng ký, quản lý tài khoản người dùng
 
+// Đăng nhập/Đăng ký truyền thống (với mật khẩu)
 router.post('/login', authController.login);
 router.post('/register', uploadAvatar, authController.register);
+
+// ============ ĐĂNG KÝ VỚI EMAIL + PASSWORD + OTP (FLOW MỚI) ============
+// Lưu ý: KHÔNG có multer middleware - chỉ nhận JSON, không nhận file avatar
+// Avatar có thể upload sau khi đăng ký thành công trong phần "Cập nhật hồ sơ"
+
+// POST /api/auth/register - Nhận email, name, password (JSON) → Gửi OTP qua email
+router.post('/auth/register', authController.registerWithEmail);
+
+// POST /api/auth/verify-otp - Verify OTP và tạo user với password (JSON only, không có avatar)
+// Avatar sẽ được upload sau trong phần "Cập nhật hồ sơ" qua route /api/upload-avatar
+router.post('/auth/verify-otp', authController.verifyOTPAndRegister);
+
+// Đăng nhập/Đăng ký với OTP (Flow cũ - không có password)
+router.post('/send-otp', authController.sendOTP);
+router.post('/register-with-otp', uploadAvatar, authController.registerWithOTP);
+router.post('/login-with-otp', authController.loginWithOTP);
+
+// Google Login with ID Token (for @react-oauth/google)
+// POST /api/auth/google - Verify Google ID token and set HttpOnly cookie
+router.post('/auth/google', authController.googleLoginWithToken);
+
+// Logout - Clear HttpOnly cookie
+// POST /api/auth/logout - Clear cookie and logout
+router.post('/auth/logout', authController.logout);
+
+// Get current authenticated user from cookie
+// GET /api/me - Returns user info based on HttpOnly cookie
+router.get('/me', authController.getMe);
+
 router.get('/users', authController.getAllUsersTable);
 router.delete('/users/:id', authController.deleteUserById);
 router.get('/profile', verifyToken, authController.getProfile);

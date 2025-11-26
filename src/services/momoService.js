@@ -26,16 +26,12 @@ class MomoService {
 
 
         // --- Cập nhật chuỗi chữ ký (sắp xếp theo Alphabet) ---
-        const rawSignature = `accessKey=${accessKey}&amount=${amount}&autoCapture=${autoCapture}&extraData=${extraData}&ipnUrl=${ipnUrl}&lang=${lang}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&partnerName=P&T Shop&redirectUrl=${redirectUrl}&requestId=${requestId}&requestType=${requestType}&storeId=PandTShop`; console.log("--------------------RAW SIGNATURE (AIO)----------------");
-        console.log(rawSignature);
-
+        const rawSignature = `accessKey=${accessKey}&amount=${amount}&autoCapture=${autoCapture}&extraData=${extraData}&ipnUrl=${ipnUrl}&lang=${lang}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&partnerName=P&T Shop&redirectUrl=${redirectUrl}&requestId=${requestId}&requestType=${requestType}&storeId=PandTShop`;
+        
         // --- Bước 2: Tạo chữ ký HMAC SHA256 ---
         const signature = crypto.createHmac('sha256', secretKey)
             .update(rawSignature)
             .digest('hex');
-
-        console.log("--------------------SIGNATURE (AIO)----------------");
-        console.log(signature);
 
         // --- Bước 3: Chuẩn bị body cho request gửi đến MoMo ---
         const requestBody = {

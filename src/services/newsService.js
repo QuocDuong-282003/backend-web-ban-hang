@@ -72,8 +72,6 @@ exports.deleteNews = async (id) => {
                     fs.unlink(filePath, (err) => {
                         if (err) {
                             console.error(`Lỗi khi xóa file content: ${filePath}`, err);
-                        } else {
-                            console.log(`Đã xóa file content: ${filePath}`);
                         }
                     });
                 }

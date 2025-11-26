@@ -72,8 +72,6 @@ exports.publicGetProductReview = async (req, res) => {
             limit: req.query.limit || 5 // Mặc định là 5 nếu không có
         };
         const result = await reviewService.getReviewsForProduct(productId, options);
-        console.log('Check data reniew', result)
-
         res.status(200).json(result);
     } catch (error) {
         console.error("Lỗi trong publicGetProductReview:", error);

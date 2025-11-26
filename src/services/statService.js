@@ -3,7 +3,6 @@ const User = require('../models/User');
 
 
 exports.increaseLoginCount = async (type) => {
-    console.log(' Ghi nhận login cho:', type);
     try {
         const today = new Date();
         // Chuẩn hóa date về đầu ngày UTC (00:00:00)
@@ -18,8 +17,6 @@ exports.increaseLoginCount = async (type) => {
             { $inc: { count: 1 } },
             { upsert: true }
         );
-
-        console.log(`Đã tăng count cho type=${type} ngày=${dateOnly.toISOString().slice(0, 10)}`);
     } catch (error) {
         console.error('Lỗi khi tăng count login:', error);
     }
@@ -32,7 +29,6 @@ exports.getLoginByDate = async () => {
         today.getUTCMonth(),
         today.getUTCDate()
     ));
-    console.log(dateOnly)
     const stats = await Stat.find({ date: dateOnly });
     return stats;
 };

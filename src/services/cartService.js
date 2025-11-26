@@ -134,9 +134,10 @@ exports.updateItemQuantity = async ({ userId, cartItemId, quantity }) => {
 
     // Tìm lại item sau khi đã populate để lấy được thông tin stock
     const populatedItem = cart.items.find(i => i._id.equals(cartItemId));
+    if (!populatedItem) throw new Error('Sản phẩm không có trong giỏ hàng.');
 
-    // Lấy số lượng tồn kho từ sản phẩm hoặc biến thể tương ứng
-    const stockAvailable = itemToUpdate.variant ? itemToUpdate.variant.stock : itemToUpdate.product.stock;
+    // Lấy số lượng tồn kho từ sản phẩm hoặc biến thể tương ứng (sử dụng populatedItem sau khi đã populate)
+    const stockAvailable = populatedItem.variant ? populatedItem.variant.stock : populatedItem.product.stock;
 
     if (stockAvailable < quantity) {
         throw new Error('Số lượng sản phẩm trong kho không đủ.');
