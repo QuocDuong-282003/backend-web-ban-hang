@@ -4,7 +4,10 @@ const Stat = require('./Stat'); // đúng đường dẫn tới file Stat.js
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { 
+    isVerified: { type: Boolean, default: false },
+    otp: String,
+    otpExpire: Date,
+    password: {
         type: String,
         // Không bắt buộc - có thể đăng ký bằng OTP hoặc Google
         // User phải có ít nhất một trong: password, googleId, hoặc isEmailVerified (OTP)

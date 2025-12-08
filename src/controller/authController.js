@@ -7,6 +7,7 @@ const User = require('../models/User');
 const streamifier = require('streamifier');
 const cloudinary = require('../utils/cloudinary');
 const upload = require('../middleware/uploadAvatar');
+const { isValidEmail, validatePassword, validateName, validateOTP, sanitizeString } = require('../utils/validators');
 exports.login = async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -342,7 +343,7 @@ exports.registerWithEmail = async (req, res) => {
         // Debug: Log request body và content-type để đảm bảo nhận đúng JSON
         console.log('[POST /api/auth/register] Request body:', req.body);
         console.log('[POST /api/auth/register] Content-Type:', req.headers['content-type']);
-        
+
         // Đảm bảo request là JSON (không phải FormData)
         const contentType = req.headers['content-type'] || '';
         if (contentType.includes('multipart/form-data')) {
@@ -417,38 +418,38 @@ exports.registerWithEmail = async (req, res) => {
         console.error('[POST /api/auth/register] ❌ Error:', error);
         console.error('[POST /api/auth/register] Error message:', error.message);
         console.error('[POST /api/auth/register] Error stack:', error.stack);
-        
+
         // Xử lý lỗi cụ thể từ email service
         let errorMessage = error.message || 'Không thể gửi OTP. Vui lòng thử lại sau.';
-        
+
         // Lỗi SendGrid - Maximum credits exceeded
-        if (error.message?.includes('Maximum credits exceeded') || 
+        if (error.message?.includes('Maximum credits exceeded') ||
             error.message?.includes('credits') ||
             error.message?.includes('quota')) {
             errorMessage = 'Email service đã hết quota. Vui lòng liên hệ admin hoặc thử lại sau.';
         }
-        
+
         // Lỗi Gmail authentication
-        if (error.message?.includes('EAUTH') || 
+        if (error.message?.includes('EAUTH') ||
             error.message?.includes('authentication') ||
             error.message?.includes('Invalid login')) {
             errorMessage = 'Lỗi xác thực email. Vui lòng kiểm tra cấu hình EMAIL_PASSWORD trong .env file.';
         }
-        
+
         // Lỗi không có cấu hình email
-        if (error.message?.includes('cấu hình email') || 
+        if (error.message?.includes('cấu hình email') ||
             error.message?.includes('FROM_EMAIL') ||
             error.message?.includes('EMAIL_PASSWORD')) {
             errorMessage = 'Chưa cấu hình email service. Vui lòng liên hệ admin.';
         }
-        
+
         res.status(400).json({
             success: false,
             message: errorMessage,
             // Chỉ trả về error detail trong development
-            ...(process.env.NODE_ENV === 'development' && { 
+            ...(process.env.NODE_ENV === 'development' && {
                 error: error.message,
-                stack: error.stack 
+                stack: error.stack
             })
         });
     }
@@ -481,7 +482,7 @@ exports.verifyOTPAndRegister = async (req, res) => {
         // Debug: Log request body và content-type
         console.log('[POST /api/auth/verify-otp] Request body:', req.body);
         console.log('[POST /api/auth/verify-otp] Content-Type:', req.headers['content-type']);
-        
+
         // Đảm bảo request là JSON (không phải FormData)
         const contentType = req.headers['content-type'] || '';
         if (contentType.includes('multipart/form-data')) {
@@ -490,7 +491,7 @@ exports.verifyOTPAndRegister = async (req, res) => {
                 message: 'API này chỉ nhận JSON. Vui lòng gửi dữ liệu dưới dạng JSON (không có file avatar). Avatar có thể upload sau trong phần "Cập nhật hồ sơ".'
             });
         }
-        
+
         const { email, code, name, password } = req.body;
 
         // Step 1: Validate input
@@ -544,10 +545,10 @@ exports.verifyOTPAndRegister = async (req, res) => {
         // Step 6: Store JWT token in HttpOnly cookie
         // Detect if running on localhost or production
         const isProduction = process.env.NODE_ENV === 'production';
-        const isLocalhost = req.get('host')?.includes('localhost') || 
-                          req.get('host')?.includes('127.0.0.1') ||
-                          !isProduction;
-        
+        const isLocalhost = req.get('host')?.includes('localhost') ||
+            req.get('host')?.includes('127.0.0.1') ||
+            !isProduction;
+
         res.cookie('token', token, {
             httpOnly: true,        // Prevents JavaScript access (XSS protection)
             secure: !isLocalhost,  // false for localhost, true for production (HTTPS)
@@ -571,7 +572,7 @@ exports.verifyOTPAndRegister = async (req, res) => {
 
     } catch (error) {
         console.error('Verify OTP and register error:', error);
-        
+
         // Handle specific errors
         if (error.message.includes('OTP') || error.message.includes('mã')) {
             return res.status(400).json({
@@ -671,10 +672,10 @@ exports.googleLoginWithToken = async (req, res) => {
         // Step 7: Store JWT token in HttpOnly cookie
         // Detect if running on localhost or production
         const isProduction = process.env.NODE_ENV === 'production';
-        const isLocalhost = req.get('host')?.includes('localhost') || 
-                          req.get('host')?.includes('127.0.0.1') ||
-                          !isProduction;
-        
+        const isLocalhost = req.get('host')?.includes('localhost') ||
+            req.get('host')?.includes('127.0.0.1') ||
+            !isProduction;
+
         res.cookie('token', token, {
             httpOnly: true,        // Prevents JavaScript access (XSS protection)
             secure: !isLocalhost,  // false for localhost, true for production (HTTPS)
@@ -734,7 +735,7 @@ exports.getMe = async (req, res) => {
         // Debug: Log cookie information
         console.log('[GET /api/me] Cookies received:', req.cookies);
         console.log('[GET /api/me] Token from cookie:', req.cookies?.token ? 'EXISTS' : 'MISSING');
-        
+
         // Step 1: Get JWT token from HttpOnly cookie (set by cookie-parser middleware)
         const token = req.cookies?.token;
 
@@ -825,9 +826,9 @@ exports.logout = async (req, res) => {
     try {
         // Detect if running on localhost or production để clear cookie đúng cách
         const isProduction = process.env.NODE_ENV === 'production';
-        const isLocalhost = req.get('host')?.includes('localhost') || 
-                          req.get('host')?.includes('127.0.0.1') ||
-                          !isProduction;
+        const isLocalhost = req.get('host')?.includes('localhost') ||
+            req.get('host')?.includes('127.0.0.1') ||
+            !isProduction;
 
         // Log để debug
         console.log('[POST /api/auth/logout] Clearing cookie...');
@@ -864,6 +865,277 @@ exports.logout = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error during logout'
+        });
+    }
+};
+
+// ============ EMAIL + PASSWORD + OTP REGISTRATION (Lưu OTP vào User model) ============
+
+/**
+ * POST /api/auth/register-send-otp
+ * Đăng ký với Email + Password - Gửi OTP
+ * 
+ * Flow:
+ * 1. Nhận email, password, name từ frontend (JSON)
+ * 2. Hash password
+ * 3. Tạo OTP 6 chữ số
+ * 4. Lưu vào User (tạm thời, chưa verified) với otp và otpExpire
+ * 5. Gửi OTP qua email
+ * 
+ * @param {Object} req.body - { email, password, name }
+ * @returns {Object} { msg: "OTP sent to email", email }
+ */
+exports.registerWithEmailPasswordOTP = async (req, res) => {
+    try {
+        const { email, password, name } = req.body;
+
+        // Validate input
+        if (!email || !password || !name) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Email, mật khẩu và tên là bắt buộc'
+            });
+        }
+
+        // Validate email format
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Email không hợp lệ'
+            });
+        }
+
+        // Validate password
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({
+                success: false,
+                msg: passwordValidation.message
+            });
+        }
+
+        // Validate name
+        const nameValidation = validateName(name);
+        if (!nameValidation.valid) {
+            return res.status(400).json({
+                success: false,
+                msg: nameValidation.message
+            });
+        }
+
+        // Sanitize và normalize input
+        const sanitizedEmail = sanitizeString(email).toLowerCase();
+        const sanitizedName = sanitizeString(name);
+
+        // Gọi service để xử lý logic
+        const result = await auhtService.registerWithEmailPasswordAndSendOTP(
+            sanitizedEmail,
+            password,
+            sanitizedName
+        );
+
+        res.status(200).json({
+            success: true,
+            msg: result.message || 'OTP đã được gửi vào email của bạn',
+            email: result.email
+        });
+    } catch (err) {
+        console.error('[POST /api/auth/register-send-otp] Error:', err);
+        res.status(400).json({
+            success: false,
+            msg: err.message || 'Lỗi server. Vui lòng thử lại sau.'
+        });
+    }
+};
+
+/**
+ * POST /api/auth/verify-register-otp
+ * Xác thực OTP và hoàn tất đăng ký
+ * 
+ * Flow:
+ * 1. Nhận email, otp từ frontend (JSON)
+ * 2. Tìm user theo email
+ * 3. Verify OTP từ User.otp và User.otpExpire
+ * 4. Set isVerified = true, clear OTP
+ * 
+ * @param {Object} req.body - { email, otp }
+ * @returns {Object} { msg: "Xác thực thành công" }
+ */
+exports.verifyOTPForRegister = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        // Validate input
+        if (!email || !otp) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Email và mã OTP là bắt buộc'
+            });
+        }
+
+        // Validate email format
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Email không hợp lệ'
+            });
+        }
+
+        // Validate OTP format
+        const otpValidation = validateOTP(otp);
+        if (!otpValidation.valid) {
+            return res.status(400).json({
+                success: false,
+                msg: otpValidation.message
+            });
+        }
+
+        // Sanitize email
+        const sanitizedEmail = sanitizeString(email).toLowerCase();
+
+        // Gọi service để xử lý logic
+        const result = await auhtService.verifyOTPAndCompleteRegister(sanitizedEmail, otp);
+
+        res.status(200).json({
+            success: true,
+            msg: result.message || 'Xác thực thành công'
+        });
+    } catch (err) {
+        console.error('[POST /api/auth/verify-register-otp] Error:', err);
+        res.status(400).json({
+            success: false,
+            msg: err.message || 'Lỗi server. Vui lòng thử lại sau.'
+        });
+    }
+};
+
+// ============ FORGOT PASSWORD + OTP (Lưu OTP vào User model) ============
+
+/**
+ * POST /api/auth/forgot-password-send-otp
+ * Quên mật khẩu - Gửi OTP
+ * 
+ * Flow:
+ * 1. Nhận email từ frontend (JSON)
+ * 2. Kiểm tra email tồn tại và có password
+ * 3. Tạo OTP 6 chữ số
+ * 4. Lưu vào User.otp và User.otpExpire
+ * 5. Gửi OTP qua email
+ * 
+ * @param {Object} req.body - { email }
+ * @returns {Object} { msg: "OTP đã gửi vào email", email }
+ */
+exports.forgotPasswordSendOTP = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        // Validate input
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Email là bắt buộc'
+            });
+        }
+
+        // Validate email format
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Email không hợp lệ'
+            });
+        }
+
+        // Sanitize email
+        const sanitizedEmail = sanitizeString(email).toLowerCase();
+
+        // Gọi service để xử lý logic
+        const result = await auhtService.forgotPasswordAndSendOTP(sanitizedEmail);
+
+        res.status(200).json({
+            success: true,
+            msg: result.message || 'OTP đã được gửi vào email của bạn',
+            email: result.email
+        });
+    } catch (err) {
+        console.error('[POST /api/auth/forgot-password-send-otp] Error:', err);
+        res.status(400).json({
+            success: false,
+            msg: err.message || 'Lỗi server. Vui lòng thử lại sau.'
+        });
+    }
+};
+
+/**
+ * POST /api/auth/verify-forgot-password-otp
+ * Xác thực OTP và đặt lại mật khẩu
+ * 
+ * Flow:
+ * 1. Nhận email, otp, newPassword từ frontend (JSON)
+ * 2. Tìm user theo email
+ * 3. Verify OTP từ User.otp và User.otpExpire
+ * 4. Hash mật khẩu mới
+ * 5. Cập nhật mật khẩu và clear OTP
+ * 
+ * @param {Object} req.body - { email, otp, newPassword }
+ * @returns {Object} { msg: "Mật khẩu đã được đặt lại thành công" }
+ */
+exports.verifyOTPAndResetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        // Validate input
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Email, mã OTP và mật khẩu mới là bắt buộc'
+            });
+        }
+
+        // Validate email format
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                success: false,
+                msg: 'Email không hợp lệ'
+            });
+        }
+
+        // Validate OTP format
+        const otpValidation = validateOTP(otp);
+        if (!otpValidation.valid) {
+            return res.status(400).json({
+                success: false,
+                msg: otpValidation.message
+            });
+        }
+
+        // Validate password
+        const passwordValidation = validatePassword(newPassword);
+        if (!passwordValidation.valid) {
+            return res.status(400).json({
+                success: false,
+                msg: passwordValidation.message
+            });
+        }
+
+        // Sanitize email
+        const sanitizedEmail = sanitizeString(email).toLowerCase();
+
+        // Gọi service để xử lý logic
+        const result = await auhtService.verifyOTPAndResetPassword(
+            sanitizedEmail,
+            otp,
+            newPassword
+        );
+
+        res.status(200).json({
+            success: true,
+            msg: result.message || 'Mật khẩu đã được đặt lại thành công'
+        });
+    } catch (err) {
+        console.error('[POST /api/auth/verify-forgot-password-otp] Error:', err);
+        res.status(400).json({
+            success: false,
+            msg: err.message || 'Lỗi server. Vui lòng thử lại sau.'
         });
     }
 };

@@ -2,11 +2,16 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const statService = require('./statService');
 const otpService = require('./otpService');
+const emailService = require('./emailService');
 exports.loginUser = async (email, password) => {
     const user = await User.findOne({ email });
     if (!user) throw new Error('Tài khoản không tồn tại');
     if (user.status !== 'active') {
         throw new Error('Tài khoản đã bị khóa. Vui lòng tạo lại mật khẩu hoặc tài khoản !')
+    }
+    // Kiểm tra user đã verify email chưa (nếu có password thì phải verify)
+    if (user.password && !user.isVerified) {
+        throw new Error('Tài khoản chưa được xác thực. Vui lòng xác thực email trước.');
     }
     // Kiểm tra user có password không (có thể đăng ký bằng OTP/Google)
     if (!user.password) {
@@ -348,6 +353,223 @@ exports.registerWithEmailOTP = async (email, name, password, otpCode, avatarUrl 
     // Trả về user data (không có password)
     const { password: _, ...userData } = user._doc;
     return userData;
+};
+
+// ============ EMAIL + PASSWORD + OTP REGISTRATION (Lưu OTP vào User model) ============
+
+/**
+ * Đăng ký với Email + Password - Gửi OTP
+ * Flow: User nhập email, password, name → Hash password → Tạo OTP → Lưu vào User (tạm thời) → Gửi OTP qua email
+ * 
+ * @param {string} email - Email của user
+ * @param {string} password - Password (sẽ được hash)
+ * @param {string} name - Tên của user
+ * @returns {Object} { success: true, message: "OTP đã gửi vào email", email }
+ */
+exports.registerWithEmailPasswordAndSendOTP = async (email, password, name) => {
+    // Validate input
+    if (!email || !password || !name) {
+        throw new Error('Email, mật khẩu và tên là bắt buộc');
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        throw new Error('Email không hợp lệ');
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+        throw new Error('Mật khẩu phải có ít nhất 6 ký tự');
+    }
+
+    // Kiểm tra email đã tồn tại và đã verified chưa
+    const exist = await User.findOne({ email });
+    if (exist && exist.isVerified) {
+        throw new Error('Email đã tồn tại');
+    }
+
+    // Hash password
+    const hashed = await bcrypt.hash(password, 10);
+
+    // Tạo OTP 6 chữ số
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpire = Date.now() + 1000 * 60 * 5; // Hết hạn sau 5 phút
+
+    // Tạo hoặc cập nhật user (lưu tạm thời, chưa verified)
+    const user = await User.findOneAndUpdate(
+        { email },
+        {
+            email,
+            name,
+            password: hashed,
+            otp,
+            otpExpire,
+            isVerified: false // Chưa verify
+        },
+        { upsert: true, new: true }
+    );
+
+    // Gửi OTP qua email với type 'register'
+    await emailService.sendEmailOTP(email, otp, 'register');
+
+    return {
+        success: true,
+        message: 'OTP đã được gửi vào email của bạn',
+        email
+    };
+};
+
+/**
+ * Xác thực OTP và hoàn tất đăng ký
+ * Flow: User nhập email, OTP → Verify OTP từ User model → Set isVerified = true, clear OTP
+ * 
+ * @param {string} email - Email của user
+ * @param {string} otpCode - Mã OTP để verify
+ * @returns {Object} { success: true, message: "Xác thực thành công" }
+ */
+exports.verifyOTPAndCompleteRegister = async (email, otpCode) => {
+    // Validate input
+    if (!email || !otpCode) {
+        throw new Error('Email và mã OTP là bắt buộc');
+    }
+
+    // Tìm user theo email
+    const user = await User.findOne({ email });
+    if (!user) {
+        throw new Error('Email không tồn tại');
+    }
+
+    // Kiểm tra OTP
+    if (user.otp !== otpCode) {
+        throw new Error('OTP sai');
+    }
+
+    // Kiểm tra OTP đã hết hạn chưa
+    if (user.otpExpire < Date.now()) {
+        throw new Error('OTP hết hạn');
+    }
+
+    // Xác thực thành công - set isVerified = true và clear OTP
+    user.isVerified = true;
+    user.otp = null;
+    user.otpExpire = null;
+    await user.save();
+
+    // Ghi nhận thống kê (chỉ đếm khi user verify thành công)
+    await statService.increaseLoginCount(user.role || 'user');
+
+    return {
+        success: true,
+        message: 'Xác thực thành công'
+    };
+};
+
+// ============ FORGOT PASSWORD + OTP (Lưu OTP vào User model) ============
+
+/**
+ * Quên mật khẩu - Gửi OTP
+ * Flow: User nhập email → Tạo OTP → Lưu vào User.otp và User.otpExpire → Gửi OTP qua email
+ * 
+ * @param {string} email - Email của user
+ * @returns {Object} { success: true, message: "OTP đã gửi vào email", email }
+ */
+exports.forgotPasswordAndSendOTP = async (email) => {
+    // Validate input
+    if (!email) {
+        throw new Error('Email là bắt buộc');
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        throw new Error('Email không hợp lệ');
+    }
+
+    // Kiểm tra email có tồn tại không
+    const user = await User.findOne({ email });
+    if (!user) {
+        throw new Error('Email không tồn tại trong hệ thống');
+    }
+
+    // Kiểm tra user có password không (nếu không có thì không thể reset)
+    if (!user.password) {
+        throw new Error('Tài khoản này không có mật khẩu. Vui lòng đăng nhập bằng OTP hoặc Google.');
+    }
+
+    // Kiểm tra user có đang active không
+    if (user.status !== 'active') {
+        throw new Error('Tài khoản đã bị khóa. Vui lòng liên hệ admin.');
+    }
+
+    // Tạo OTP 6 chữ số
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpire = Date.now() + 1000 * 60 * 5; // Hết hạn sau 5 phút
+
+    // Cập nhật OTP vào User
+    user.otp = otp;
+    user.otpExpire = otpExpire;
+    await user.save();
+
+    // Gửi OTP qua email với type 'reset-password'
+    await emailService.sendEmailOTP(email, otp, 'reset-password');
+
+    return {
+        success: true,
+        message: 'OTP đã được gửi vào email của bạn',
+        email
+    };
+};
+
+/**
+ * Xác thực OTP và đặt lại mật khẩu
+ * Flow: User nhập email, OTP, mật khẩu mới → Verify OTP từ User model → Đặt lại mật khẩu
+ * 
+ * @param {string} email - Email của user
+ * @param {string} otpCode - Mã OTP để verify
+ * @param {string} newPassword - Mật khẩu mới (sẽ được hash)
+ * @returns {Object} { success: true, message: "Mật khẩu đã được đặt lại thành công" }
+ */
+exports.verifyOTPAndResetPassword = async (email, otpCode, newPassword) => {
+    // Validate input
+    if (!email || !otpCode || !newPassword) {
+        throw new Error('Email, mã OTP và mật khẩu mới là bắt buộc');
+    }
+
+    // Validate password length
+    if (newPassword.length < 6) {
+        throw new Error('Mật khẩu phải có ít nhất 6 ký tự');
+    }
+
+    // Tìm user theo email
+    const user = await User.findOne({ email });
+    if (!user) {
+        throw new Error('Email không tồn tại');
+    }
+
+    // Kiểm tra OTP
+    if (user.otp !== otpCode) {
+        throw new Error('OTP sai');
+    }
+
+    // Kiểm tra OTP đã hết hạn chưa
+    if (user.otpExpire < Date.now()) {
+        throw new Error('OTP hết hạn');
+    }
+
+    // Hash mật khẩu mới
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    // Cập nhật mật khẩu mới và clear OTP
+    user.password = hashed;
+    user.otp = null;
+    user.otpExpire = null;
+    await user.save();
+
+    return {
+        success: true,
+        message: 'Mật khẩu đã được đặt lại thành công'
+    };
 };
 
 
